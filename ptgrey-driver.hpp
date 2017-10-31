@@ -419,8 +419,11 @@ class PtgreyDriver : public CameraDriver {
       value = (info.absMax - info.absMin) * value + info.absMin;
     }
 
-    if (value > info.absMax || value < info.absMin)
-      internal_error(StatusCode::OUT_OF_RANGE, type, error);
+    if (value > info.absMax || value < info.absMin) {
+      auto msg = fmt::format("On {} property, value {} out of range. Current range: [{},{}]",
+                             get_property_name(type), value, info.absMin, info.absMax);
+      internal_error(StatusCode::OUT_OF_RANGE, msg);
+    }
 
     fc::Property property(type);
     property.absValue = value;

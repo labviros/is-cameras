@@ -43,10 +43,10 @@ struct CameraGateway {
   void configure_camera_settings(CameraSettings const& camera_settings) {}
 
   void configure_camera(CameraConfig const& config) {
-    if (config.has_sampling())
-      configure_sampling_settings(config.sampling());
     if (config.has_image())
       configure_image_settings(config.image());
+    if (config.has_sampling())
+      configure_sampling_settings(config.sampling());
     if (config.has_camera())
       configure_camera_settings(config.camera());
   }
