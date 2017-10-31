@@ -1,34 +1,42 @@
+#include <is/is.hpp>
 #include <opencv2/highgui.hpp>
-#include "ptgrey-driver.hpp"
 
-int main(int argc, char** argv) {
-  assert(argc == 2);
+#include <is/msgs/camera.pb.h>
+#include <is/msgs/common.pb.h>
+#include <is/msgs/image.pb.h>
 
-  is::camera::PtgreyDriver driver;
-  driver.connect(argv[1]);
+using namespace is;
+using namespace is::vision;
+using namespace is::common;
 
-  is::msg::camera::SamplingRate sr;
-  sr.rate = 20;
+int main(int, char**) {
+  auto uri = "amqp://rmq.is:30000";
+  auto channel = rmq::Channel::CreateFromUri(uri);
+  auto tag = is::declare_queue(channel);
 
-  is::msg::camera::Resolution resolution;
-  resolution.width = 1288;
-  resolution.height = 728;
-  
-  is::msg::camera::RegionOfInterest roi;
-  roi.x_offset = 0;
-  roi.y_offset = 0;
-  roi.width = -1;
-  roi.height = -1;
-  
-  driver.set_color_space(is::msg::camera::color_space::gray);
-  driver.set_resolution(resolution);
-  driver.set_region_of_interest(roi);
-  driver.set_sampling_rate(sr);
-  driver.start_capture();
+  CameraConfig config;
+  config.mutable_image()->mutable_format()->set_format(ImageFormats::JPEG);
+  config.mutable_image()->mutable_color_space()->set_color_space(ColorSpaces::RGB);
+  auto resolution = config.mutable_image()->mutable_resolution();;
+  resolution->set_width(1288 / 1);
+  resolution->set_height(728 / 1);
+  config.mutable_sampling()->set_frequency(5.0);
+  config.mutable_sampling()->mutable_delay()->set_value(0.050);
+    
+  auto msg = is::pack_proto(config);
+  msg->ReplyTo(tag);
+  channel->BasicPublish("is", "CameraGateway.0.SetConfig", msg);
 
-  for (;;) {
-    auto frame = driver.grab();
-    cv::imshow("frame", frame);
-    cv::waitKey(1);
+  config.PrintDebugString();
+  is::subscribe(channel, tag, "CameraGateway.0.Frame");
+  while (1) {
+    auto envelope = channel->BasicConsumeMessage(tag);
+    auto image = is::unpack<Image>(envelope);
+    if (image) {
+      std::vector<unsigned char> data(image->data().begin(), image->data().end());
+      cv::Mat frame = cv::imdecode(data, CV_LOAD_IMAGE_COLOR);
+      cv::imshow("frame", frame);
+      cv::waitKey(1);
+    }
   }
 }

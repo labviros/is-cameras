@@ -1,11 +1,18 @@
-COMPILER = g++
-FLAGS = -g -std=c++14 -Wall -Wextra -Werror
+CXX = g++
+CXXFLAGS += -std=c++11 -Wall -Werror
+DEBUGFLAGS = -g -fsanitize=address -fno-omit-frame-pointer
+RELEASEFLAGS = -O3
+BUILDFLAGS = $(RELEASEFLAGS)
+LDFLAGS += -L/usr/local/lib -I/usr/local/include \
+			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient opencv`\
+			-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs\
+			-Wl,--no-as-needed -Wl,--as-needed -ldl
+PROTOC = protoc
 
-SO_DEPS = $(shell pkg-config --libs --cflags libSimpleAmqpClient msgpack librabbitmq opencv theoradec theoraenc)
-# SO_DEPS += -lboost_program_options -lboost_system -lboost_filesystem -lpthread -larmadillo
-SO_DEPS += -lflycapture -lpthread
+LOCAL_PROTOS_PATH = ./msgs/
+vpath %.proto $(LOCAL_PROTOS_PATH)
 
-MAINTAINER = picoreti
+MAINTAINER = mendonca
 SERVICE = camera-gateway
 VERSION = 1
 LOCAL_REGISTRY = git.is:5000
@@ -13,15 +20,19 @@ LOCAL_REGISTRY = git.is:5000
 all: $(SERVICE) test
 
 clean:
-	rm -f $(SERVICE) test
+	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test
 
-test: test.cpp
-	$(COMPILER) $^ -o $@ $(FLAGS) $(SO_DEPS)
+$(SERVICE): $(SERVICE).o
+	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
-$(SERVICE): $(SERVICE).cpp
-	$(COMPILER) $^ -o $@ $(FLAGS) $(SO_DEPS)
+test: test.o
+	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
-docker: $(SERVICE)
+.PRECIOUS: %.pb.cc
+%.pb.cc: %.proto
+	$(PROTOC) -I $(LOCAL_PROTOS_PATH) --cpp_out=. $<
+
+docker:
 	rm -rf libs/
 	mkdir libs/
 	lddcp $(SERVICE) libs/

@@ -3,26 +3,34 @@
 
 #include "camera-driver.hpp"
 
-#include <mutex>
 #include <string>
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
 
 #include <flycapture/FlyCapture2.h>
+
 #include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
 
 namespace is {
 namespace camera {
 
 namespace fc = FlyCapture2;
+using namespace is::common;
+using namespace is::vision;
 
 class PtgreyDriver : public CameraDriver {
   fc::PGRGuid* uid;
   fc::GigECamera camera;
 
+  ImageFormat image_format;
+  fc::PixelFormat pixel_format;
+
+  bool is_capturing;
+
  public:
-  PtgreyDriver() : uid(new fc::PGRGuid()) {}
+  PtgreyDriver() : uid(new fc::PGRGuid()), is_capturing(false) {}
   ~PtgreyDriver() { delete uid; }
 
   void connect(std::string const& ip_address) {
@@ -40,50 +48,84 @@ class PtgreyDriver : public CameraDriver {
 
     auto error = bus.GetCameraFromIPAddress(fc::IPAddress(ip), uid);
     if (error != fc::PGRERROR_OK)
-      is::log::critical("{} {} {}", error.GetFilename(), error.GetLine(), error.GetDescription());
+      is::critical("{} {} {}", error.GetFilename(), error.GetLine(), error.GetDescription());
 
     error = camera.Connect(uid);
     if (error != fc::PGRERROR_OK)
-      is::log::critical("{} {} {}", error.GetFilename(), error.GetLine(), error.GetDescription());
+      is::critical("{} {} {}", error.GetFilename(), error.GetLine(), error.GetDescription());
 
     set_gige_property(fc::PACKET_DELAY, 6000);
     set_gige_property(fc::PACKET_SIZE, 1400);
+    ColorSpace color_space;
+    color_space.set_color_space(ColorSpaces::GRAY);
+    set_color_space(color_space);
+    ImageFormat image_format;
+    image_format.set_format(ImageFormats::JPEG);
+    set_image_format(image_format);
   }
 
-  void start_capture() override { camera.StartCapture(); }
-
-  void stop_capture() override { camera.StopCapture(); }
-
-  cv::Mat grab() {
-    fc::Image buffer;
-    auto error = camera.RetrieveBuffer(&buffer);
+  Image grab_image() override {
+    fc::Image image;
+    Defer clean_image([&] { image.ReleaseBuffer(); });
+    auto error = camera.RetrieveBuffer(&image);
     if (error != fc::PGRERROR_OK)
-      is::log::warn("{} {} {}", error.GetFilename(), error.GetLine(), error.GetDescription());
+      is::warn("[Grab Image] {}", error.GetDescription());
 
-    cv::Mat frame(buffer.GetRows(), buffer.GetCols(), CV_8UC1, buffer.GetData(),
-                  buffer.GetDataSize() / buffer.GetRows());
+    fc::Image buffer;
+    Defer clean_buffer([&] {
+      if (pixel_format == fc::PIXEL_FORMAT_BGR)
+        buffer.ReleaseBuffer();
+    });
+    cv::Mat frame;
+    if (pixel_format == fc::PIXEL_FORMAT_MONO8) {
+      frame = cv::Mat(image.GetRows(), image.GetCols(), CV_8UC1, image.GetData(),
+                      image.GetDataSize() / image.GetRows());
+    } else if (pixel_format == fc::PIXEL_FORMAT_RGB8) {
+      error = image.Convert(fc::PIXEL_FORMAT_BGR, &buffer);
+      if (error != fc::PGRERROR_OK)
+        internal_error("Grab Image", error);
 
-    buffer.ReleaseBuffer();
-    return frame;
+      frame = cv::Mat(buffer.GetRows(), buffer.GetCols(), CV_8UC3, buffer.GetData(),
+                      buffer.GetDataSize() / buffer.GetRows());
+    } else {
+      throw std::runtime_error("[Grab Image] Bad image type");
+    }
+
+    std::vector<unsigned char> image_data;
+    cv::imencode(fmt::format(".{}", ImageFormats_Name(image_format.format())), frame, image_data);
+    Image compressed;
+    auto compressed_data = compressed.mutable_data();
+    compressed_data->resize(image_data.size());
+    std::copy(image_data.begin(), image_data.end(), compressed_data->begin());
+    return compressed;
   }
 
-  void set_sampling_rate(SamplingRate const& sr) override {
-    if (sr.period)
-      set_property_abs(fc::FRAME_RATE, 1000.0f / sr.period.get());
-    if (sr.rate)
-      set_property_abs(fc::FRAME_RATE, sr.rate.get());
+  void start_capture() override {
+    auto error = camera.StartCapture();
+    if (error != fc::PGRERROR_OK)
+      internal_error(StatusCode::INTERNAL_ERROR, "Start Capture", error);
+    is_capturing = true;
   }
 
-  void set_delay(Delay const& delay) override {
-    set_property_abs(fc::TRIGGER_DELAY, static_cast<float>(delay.milliseconds) / 1000.0f);
+  void stop_capture() override {
+    auto error = camera.StopCapture();
+    if (error != fc::PGRERROR_OK)
+      internal_error(StatusCode::INTERNAL_ERROR, "Stop Capture", error);
+    is_capturing = false;
   }
 
-  void set_resolution(msg::camera::Resolution const& resolution) override {
+  void set_sampling_rate(float const& rate) override { set_property_abs(fc::FRAME_RATE, rate); }
+
+  void set_delay(float const& delay) override { set_property_abs(fc::TRIGGER_DELAY, delay); }
+
+  void set_resolution(Resolution const& resolution) override {
     // Changing the size of the image or the pixel encoding
     // format requires the camera to be stopped and restarted.
+    auto keep_capturing = is_capturing;
+    if (is_capturing)
+      stop_capture();
     fc::Error error;
-    camera.StopCapture();
-    int scale = 1288 / resolution.width;
+    int scale = 1288 / resolution.width();
     if (scale == 1) {
       error = camera.SetGigEImagingMode(fc::MODE_0);  // max resolution
     } else if (scale == 2) {
@@ -91,105 +133,190 @@ class PtgreyDriver : public CameraDriver {
     } else {
       error = camera.SetGigEImagingMode(fc::MODE_5);  // max resolution / 4
     }
-    camera.StartCapture();
-
+    if (keep_capturing)
+      start_capture();
     if (error != fc::PGRERROR_OK)
-      internal_error("Resolution", error);
+      internal_error(StatusCode::INVALID_ARGUMENT, "Resolution", error);
   }
 
-  void set_color_space(msg::camera::ColorSpace const& color_space) override {
+  void set_color_space(ColorSpace const& cs) override {
+    auto color_space = cs.color_space();
     fc::GigEImageSettings settings;
     auto error = camera.GetGigEImageSettings(&settings);
     if (error != fc::PGRERROR_OK)
-      internal_error("Color Space", error);
+      internal_error(StatusCode::INTERNAL_ERROR, "Color Space", error);
 
-    std::string type = color_space.value;
-    boost::algorithm::to_lower_copy(type);
-    if (type == "gray") {
-      settings.pixelFormat = fc::PIXEL_FORMAT_MONO8;
-    } else if (type == "rgb") {
-      settings.pixelFormat = fc::PIXEL_FORMAT_BGR;
-    } else {
-      auto msg = fmt::format("Invalid type \"{}\". Valid types: \"rgb\" and \"gray\"", type);
-      throw std::runtime_error(msg);
+    if (to_pixel_format.find(color_space) == to_pixel_format.end()) {
+      auto msg = fmt::format("Invalid type \"{}\". Valid types: \"RGB\" and \"GRAY\"",
+                             ColorSpaces_Name(color_space));
+      internal_error(StatusCode::INVALID_ARGUMENT, msg);
     }
 
-    camera.StopCapture();
-    error = camera.SetGigEImageSettings(&settings);
-    camera.StartCapture();
-
+    settings.pixelFormat = to_pixel_format[color_space];
+    error = set_gige_settings(settings);
     if (error != fc::PGRERROR_OK)
-      internal_error("Color Space", error);
+      internal_error(StatusCode::INVALID_ARGUMENT, "Color Space", error);
+
+    pixel_format = settings.pixelFormat;
   }
 
-  void set_region_of_interest(msg::camera::RegionOfInterest const& roi) override {
+  void set_image_format(ImageFormat const& imgf) override { image_format = imgf; }
+
+  void set_region_of_interest(BoundingPoly const& roi) override {
+    auto n_verticies = roi.vertices_size();
+    if (n_verticies < 2)
+      internal_error(StatusCode::INVALID_ARGUMENT,
+                     "Region of Interest must have at least 2 vertices");
+    if (n_verticies > 2)
+      internal_error(StatusCode::UNIMPLEMENTED,
+                     "Funtionality implemented just for BoundingPoly with 2 vertices");
+
     fc::GigEImageSettingsInfo info;
     auto error = camera.GetGigEImageSettingsInfo(&info);
     if (error != fc::PGRERROR_OK)
-      internal_error("Region of Interest", error);
+      internal_error(StatusCode::INTERNAL_ERROR, "Region of Interest", error);
 
     fc::GigEImageSettings settings;
     error = camera.GetGigEImageSettings(&settings);
     if (error != fc::PGRERROR_OK)
-      internal_error("Region of Interest", error);
+      internal_error(StatusCode::INTERNAL_ERROR, "Region of Interest", error);
 
-    settings.offsetX = roi.x_offset;
-    settings.offsetY = roi.y_offset;
-    settings.height = std::min(info.maxHeight, roi.height);
-    settings.width = std::min(info.maxWidth, roi.width);
+    auto top_left = roi.vertices(0);
+    auto bottom_right = roi.vertices(1);
+    auto width = static_cast<unsigned int>(bottom_right.x() - top_left.x());
+    auto height = static_cast<unsigned int>(bottom_right.y() - top_left.y());
+    settings.offsetX = top_left.x();
+    settings.offsetY = top_left.y();
+    settings.width = std::min(info.maxWidth, width);
+    settings.height = std::min(info.maxHeight, height);
 
-    camera.StopCapture();
-    error = camera.SetGigEImageSettings(&settings);
-    camera.StartCapture();
-
+    error = set_gige_settings(settings);
     if (error != fc::PGRERROR_OK)
-      internal_error("Region of Interest", error);
+      internal_error(StatusCode::INVALID_ARGUMENT, "Region of Interest", error);
   }
 
-  void set_exposure(msg::camera::Exposure const& exposure) override {
+  void set_exposure(CameraSetting const& exposure) override {
+    /*
     if (exposure.percent)
-      set_property_abs(fc::AUTO_EXPOSURE, exposure.percent.get(), /*is_ratio*/ true);
+      set_property_abs(fc::AUTO_EXPOSURE, exposure.percent.get(), true);
     if (exposure.ev)
       set_property_abs(fc::AUTO_EXPOSURE, exposure.ev.get());
     if (exposure.auto_mode && exposure.auto_mode.get() == true)
       set_property_auto(fc::AUTO_EXPOSURE);
+    */
   }
 
-  void set_gain(msg::camera::Gain const& gain) override {
+  void set_gain(CameraSetting const& gain) override {
+    /*
     if (gain.percent)
-      set_property_abs(fc::GAIN, gain.percent.get(), /*is_ratio*/ true);
+      set_property_abs(fc::GAIN, gain.percent.get(), true);
     if (gain.db)
       set_property_abs(fc::GAIN, gain.db.get());
     if (gain.auto_mode && gain.auto_mode.get() == true)
       set_property_auto(fc::GAIN);
+    */
   }
 
-  void set_shutter(msg::camera::Shutter const& shutter) override {
+  void set_shutter(CameraSetting const& shutter) override {
+    /*
     if (shutter.percent)
-      set_property_abs(fc::SHUTTER, shutter.percent.get(), /*is_ratio*/ true);
+      set_property_abs(fc::SHUTTER, shutter.percent.get(), true);
     if (shutter.ms)
       set_property_abs(fc::SHUTTER, shutter.ms.get());
     if (shutter.auto_mode && shutter.auto_mode.get() == true)
       set_property_auto(fc::SHUTTER);
+    */
   }
 
-  void set_brightness(msg::camera::Brightness const&) override {}
-  void set_white_balance(msg::camera::WhiteBalance const&) override {}
+  void set_brightness(CameraSetting const&) override {}
+  void set_sharpness(CameraSetting const&) override {}
+  void set_hue(CameraSetting const&) override {}
+  void set_saturation(CameraSetting const&) override {}
+  void set_gamma(CameraSetting const&) override {}
+  void set_white_balance_bu(CameraSetting const&) override {}
+  void set_white_balance_rv(CameraSetting const&) override {}
 
-  SamplingRate get_sampling_rate() override {
-    auto property = get_property(fc::FRAME_RATE);
-    SamplingRate sr;
-    sr.rate = property.absValue;
+  ColorSpace get_color_space() override {
+    ColorSpace color_space;
+    color_space.set_color_space(to_color_space[pixel_format]);
+    return color_space;
+  }
+
+  Resolution get_resolution() override {
+    Resolution x;
+    return x;
+  }
+  BoundingPoly get_region_of_interest() override {
+    BoundingPoly x;
+    return x;
+  }
+
+  float get_sampling_rate() override {
+    // auto property = get_property(fc::FRAME_RATE);
+    float sr = 1.0;
+    // sr.rate = property.absValue;
     return sr;
   }
 
-  // virtual Expected<Resolution> get_resolution() = 0;
-  // virtual Expected<Exposure> get_exposure() = 0;
-  // virtual Expected<Gain> get_gain() = 0;
-  // virtual Expected<ImageType> get_image_type() = 0;
-  // virtual Expected<RegionOfInterest> get_region_of_interest() = 0;
-  // virtual Expected<Shutter> get_shutter() = 0;
-  // virtual Expected<WhiteBalance> get_white_balance() = 0;
+  float get_delay() override {
+    float x = 1.0;
+    return x;
+  }
+
+  ImageFormat get_image_format() override {
+    ImageFormat x;
+    return x;
+  }
+
+  CameraSetting get_brightness() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_exposure() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_sharpness() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_hue() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_saturation() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_gamma() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_shutter() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_gain() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_white_balance_bu() override {
+    CameraSetting x;
+    return x;
+  }
+
+  CameraSetting get_white_balance_rv() override {
+    CameraSetting x;
+    return x;
+  }
 
  private:
   /**** GiGeProperties
@@ -199,6 +326,14 @@ class PtgreyDriver : public CameraDriver {
    * OnePush - Camera control feature once then return to manual mode if true
    *
    ****/
+  struct Defer {
+    std::function<void()> on_exit;
+    Defer(std::function<void()>&& f) noexcept : on_exit(std::move(f)) {}
+    Defer(Defer const&) = delete;
+    Defer() = default;
+    Defer(Defer&& defer) : on_exit(std::move(defer.on_exit)) {}
+    ~Defer() { on_exit(); }
+  };
 
   std::string get_property_name(fc::PropertyType type) {
     switch (type) {
@@ -217,16 +352,43 @@ class PtgreyDriver : public CameraDriver {
     }
   }
 
+  void internal_error(StatusCode code, std::string const& why) {
+    is::warn(why);
+    throw is::make_status(code, why);
+  }
+
+  void internal_error(StatusCode code, std::string const& why, fc::Error const& error) {
+    auto error_msg = fmt::format("[{}] {}", why, error.GetDescription());
+    is::warn(error_msg);
+    throw is::make_status(code, error_msg);
+  }
+
+  void internal_error(StatusCode code, fc::PropertyType type, fc::Error const& error) {
+    auto error_msg = fmt::format("[{}] {}", get_property_name(type), error.GetDescription());
+    is::warn(error_msg);
+    throw is::make_status(code, error_msg);
+  }
+
   void internal_error(std::string const& id, fc::Error const& error) {
     auto error_msg = fmt::format("[{}] {}", id, error.GetDescription());
-    is::log::warn(error_msg);
+    is::warn(error_msg);
     throw std::runtime_error(error_msg);
   }
 
   void internal_error(fc::PropertyType type, fc::Error const& error) {
     auto error_msg = fmt::format("[{}] {}", get_property_name(type), error.GetDescription());
-    is::log::warn(error_msg);
+    is::warn(error_msg);
     throw std::runtime_error(error_msg);
+  }
+
+  fc::Error set_gige_settings(fc::GigEImageSettings const& settings) {
+    auto keep_capturing = is_capturing;
+    if (is_capturing)
+      stop_capture();
+    auto error = camera.SetGigEImageSettings(&settings);
+    if (keep_capturing)
+      start_capture();
+    return error;
   }
 
   void set_gige_property(fc::GigEPropertyType type, int value) {
@@ -235,7 +397,8 @@ class PtgreyDriver : public CameraDriver {
     property.value = value;
 
     auto error = camera.SetGigEProperty(&property);
-    /* IMPLEMENT ERROR HANDLING */
+    if (error != fc::PGRERROR_OK)
+      internal_error("GigE Property", error);
   }
 
   fc::Property get_property(fc::PropertyType type) {
@@ -250,14 +413,14 @@ class PtgreyDriver : public CameraDriver {
     fc::PropertyInfo info(type);
     auto error = camera.GetPropertyInfo(&info);
     if (error != fc::PGRERROR_OK)
-      internal_error(type, error);
+      internal_error(StatusCode::INTERNAL_ERROR, type, error);
 
     if (is_ratio) {
       value = (info.absMax - info.absMin) * value + info.absMin;
     }
 
     if (value > info.absMax || value < info.absMin)
-      internal_error(type, error);
+      internal_error(StatusCode::OUT_OF_RANGE, type, error);
 
     fc::Property property(type);
     property.absValue = value;
@@ -267,7 +430,7 @@ class PtgreyDriver : public CameraDriver {
 
     error = camera.SetProperty(&property);
     if (error != fc::PGRERROR_OK)
-      internal_error(type, error);
+      internal_error(StatusCode::INTERNAL_ERROR, type, error);
   }
 
   void set_property_auto(fc::PropertyType type) {
@@ -279,6 +442,12 @@ class PtgreyDriver : public CameraDriver {
     if (error != fc::PGRERROR_OK)
       internal_error(type, error);
   }
+
+  std::map<ColorSpaces, fc::PixelFormat> to_pixel_format{
+      {ColorSpaces::RGB, fc::PIXEL_FORMAT_RGB8}, {ColorSpaces::GRAY, fc::PIXEL_FORMAT_MONO8}};
+
+  std::map<fc::PixelFormat, ColorSpaces> to_color_space{
+      {fc::PIXEL_FORMAT_RGB8, ColorSpaces::RGB}, {fc::PIXEL_FORMAT_MONO8, ColorSpaces::GRAY}};
 
 };  // PtgreyDriver
 
