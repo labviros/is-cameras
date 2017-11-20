@@ -1,8 +1,8 @@
 #ifndef __PTGREY_DRIVER_HPP__
 #define __PTGREY_DRIVER_HPP__
 
-#include "camera-driver.hpp"
 #include <is/is.hpp>
+#include "camera-driver.hpp"
 
 #include <string>
 #include <vector>
@@ -71,9 +71,9 @@ class PtgreyDriver : public CameraDriver {
     auto error = camera.RetrieveBuffer(&image);
     if (error != fc::PGRERROR_OK)
       is::warn("[Grab Image] {}", error.GetDescription());
-    
+
     timestamp = is::current_time();
-    
+
     fc::Image buffer;
     Defer clean_buffer([&] {
       if (pixel_format == fc::PIXEL_FORMAT_BGR)
@@ -103,9 +103,7 @@ class PtgreyDriver : public CameraDriver {
     return compressed;
   }
 
-  pb::Timestamp last_timestamp() override {
-    return this->timestamp;
-  }
+  pb::Timestamp last_timestamp() override { return this->timestamp; }
 
   void start_capture() override {
     auto error = camera.StartCapture();
@@ -245,35 +243,60 @@ class PtgreyDriver : public CameraDriver {
 
   ColorSpace get_color_space() override {
     ColorSpace color_space;
-    color_space.set_color_space(to_color_space[pixel_format]);
+    try {
+      color_space.set_color_space(to_color_space.at(pixel_format));
+    } catch (...) { internal_error(StatusCode::OUT_OF_RANGE, "Color Space not recognized"); }
     return color_space;
   }
 
   Resolution get_resolution() override {
-    Resolution x;
-    return x;
+    fc::Mode mode;
+    auto error = camera.GetGigEImagingMode(&mode);
+    if (error != fc::PGRERROR_OK)
+      internal_error(StatusCode::INTERNAL_ERROR, "Resolution", error);
+    Resolution resolution;
+    if (mode == fc::MODE_0) {
+      resolution.set_width(1288);
+      resolution.set_height(728);
+    } else if (mode == fc::MODE_1) {
+      resolution.set_width(1288 / 2);
+      resolution.set_height(728 / 2);
+    } else if (mode == fc::MODE_5) {
+      resolution.set_width(1288 / 4);
+      resolution.set_height(728 / 4);
+    } else {
+      internal_error(StatusCode::INVALID_ARGUMENT, "Invalid camera mode received");
+    }
+    return resolution;
   }
+
   BoundingPoly get_region_of_interest() override {
-    BoundingPoly x;
-    return x;
+    fc::GigEImageSettings settings;
+    auto error = camera.GetGigEImageSettings(&settings);
+    if (error != fc::PGRERROR_OK)
+      internal_error(StatusCode::INTERNAL_ERROR, "Region of Interest", error);
+
+    BoundingPoly roi;
+    auto top_left = roi.add_vertices();
+    top_left->set_x(settings.offsetX);
+    top_left->set_y(settings.offsetY);
+    auto bottom_right = roi.add_vertices();
+    bottom_right->set_x(settings.offsetX + settings.width);
+    bottom_right->set_y(settings.offsetY + settings.height);
+    return roi;
   }
 
   float get_sampling_rate() override {
-    // auto property = get_property(fc::FRAME_RATE);
-    float sr = 1.0;
-    // sr.rate = property.absValue;
-    return sr;
+    auto property = get_property(fc::FRAME_RATE);
+    return property.absValue;
   }
 
   float get_delay() override {
-    float x = 1.0;
-    return x;
+    auto property = get_property(fc::TRIGGER_DELAY);
+    return property.absValue;
   }
 
-  ImageFormat get_image_format() override {
-    ImageFormat x;
-    return x;
-  }
+  ImageFormat get_image_format() override { return image_format; }
 
   CameraSetting get_brightness() override {
     CameraSetting x;
@@ -412,7 +435,7 @@ class PtgreyDriver : public CameraDriver {
     fc::Property property(type);
     auto error = camera.GetProperty(&property);
     if (error != fc::PGRERROR_OK)
-      internal_error(type, error);
+      internal_error(StatusCode::INTERNAL_ERROR, type, error);
     return property;
   }
 
@@ -461,7 +484,7 @@ class PtgreyDriver : public CameraDriver {
 
 };  // PtgreyDriver
 
-}  // camera
-}  // is
+}  // namespace camera
+}  // namespace is
 
 #endif  // __PTGREY_DRIVER_HPP__

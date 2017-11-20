@@ -1,10 +1,11 @@
-CXX = g++
-CXXFLAGS += -std=c++11 -Wall -Werror
+CXX = clang++
+CXXFLAGS += -std=c++14 -Wall -Werror
 DEBUGFLAGS = -g -fsanitize=address -fno-omit-frame-pointer
 RELEASEFLAGS = -O3
-BUILDFLAGS = $(DEBUGFLAGS)
+BUILDFLAGS = $(RELEASEFLAGS)
 LDFLAGS += -L/usr/local/lib -I/usr/local/include \
-			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient opencv`\
+			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient`\
+			-lopencv_imgproc -lopencv_core -lopencv_imgcodecs -lopencv_highgui\
 			-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs\
 			-Wl,--no-as-needed -Wl,--as-needed -ldl
 PROTOC = protoc
