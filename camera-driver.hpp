@@ -1,11 +1,18 @@
 #ifndef __CAMERA_DRIVER_HPP__
 #define __CAMERA_DRIVER_HPP__
 
-#include <is/msgs/common.pb.h>
+#include <google/protobuf/util/time_util.h>
 #include <is/msgs/camera.pb.h>
+#include <is/msgs/common.pb.h>
 #include <is/msgs/image.pb.h>
 
 namespace is {
+
+namespace pb {
+using namespace google::protobuf::util;
+using namespace google::protobuf;
+}  // namespace pb
+
 namespace camera {
 
 using namespace is::common;
@@ -14,7 +21,7 @@ using namespace is::vision;
 // This interface is required to be thread safe
 struct CameraDriver {
   virtual ~CameraDriver() {}
-  
+
   // Image Settings
   virtual void set_resolution(Resolution const&) = 0;
   virtual void set_image_format(ImageFormat const&) = 0;
@@ -34,7 +41,7 @@ struct CameraDriver {
   virtual void set_gain(CameraSetting const&) = 0;
   virtual void set_white_balance_bu(CameraSetting const&) = 0;
   virtual void set_white_balance_rv(CameraSetting const&) = 0;
-  
+
   // Image Settings
   virtual Resolution get_resolution() = 0;
   virtual ImageFormat get_image_format() = 0;
@@ -55,12 +62,13 @@ struct CameraDriver {
   virtual CameraSetting get_white_balance_bu() = 0;
   virtual CameraSetting get_white_balance_rv() = 0;
 
+  virtual pb::Timestamp last_timestamp() = 0;
   virtual Image grab_image() = 0;
   virtual void start_capture() = 0;
   virtual void stop_capture() = 0;
 };  // CameraDriver
 
-}  // camera
-}  // is
+}  // namespace camera
+}  // namespace is
 
 #endif  // __CAMERA_DRIVER_HPP__

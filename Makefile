@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS += -std=c++11 -Wall -Werror
 DEBUGFLAGS = -g -fsanitize=address -fno-omit-frame-pointer
 RELEASEFLAGS = -O3
-BUILDFLAGS = $(RELEASEFLAGS)
+BUILDFLAGS = $(DEBUGFLAGS)
 LDFLAGS += -L/usr/local/lib -I/usr/local/include \
 			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient opencv`\
 			-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs\

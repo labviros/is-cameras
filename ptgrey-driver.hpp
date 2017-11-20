@@ -2,6 +2,7 @@
 #define __PTGREY_DRIVER_HPP__
 
 #include "camera-driver.hpp"
+#include <is/is.hpp>
 
 #include <string>
 #include <vector>
@@ -26,8 +27,8 @@ class PtgreyDriver : public CameraDriver {
 
   ImageFormat image_format;
   fc::PixelFormat pixel_format;
-
   bool is_capturing;
+  is::pb::Timestamp timestamp;
 
  public:
   PtgreyDriver() : uid(new fc::PGRGuid()), is_capturing(false) {}
@@ -70,7 +71,9 @@ class PtgreyDriver : public CameraDriver {
     auto error = camera.RetrieveBuffer(&image);
     if (error != fc::PGRERROR_OK)
       is::warn("[Grab Image] {}", error.GetDescription());
-
+    
+    timestamp = is::current_time();
+    
     fc::Image buffer;
     Defer clean_buffer([&] {
       if (pixel_format == fc::PIXEL_FORMAT_BGR)
@@ -98,6 +101,10 @@ class PtgreyDriver : public CameraDriver {
     compressed_data->resize(image_data.size());
     std::copy(image_data.begin(), image_data.end(), compressed_data->begin());
     return compressed;
+  }
+
+  pb::Timestamp last_timestamp() override {
+    return this->timestamp;
   }
 
   void start_capture() override {

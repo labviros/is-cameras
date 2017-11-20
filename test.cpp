@@ -25,7 +25,7 @@ int main(int, char**) {
     
   auto msg = is::pack_proto(config);
   msg->ReplyTo(tag);
-  channel->BasicPublish("is", "CameraGateway.0.SetConfig", msg);
+//  channel->BasicPublish("is", "CameraGateway.0.SetConfig", msg);
 
   config.PrintDebugString();
   is::subscribe(channel, tag, "CameraGateway.0.Frame");

@@ -85,7 +85,10 @@ struct CameraGateway {
 
     for (;;) {
       auto image = driver->grab_image();
+      auto timestamp = driver->last_timestamp();
+      
       is::publish(channel, fmt::format("CameraGateway.{}.Frame", id), image);
+      is::publish(channel, fmt::format("CameraGateway.{}.Timestamp", id), timestamp);
 
       rmq::Envelope::ptr_t envelope;
       if (channel->BasicConsumeMessage(envelope, 1)) {
