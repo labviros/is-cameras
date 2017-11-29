@@ -2,6 +2,7 @@
 #define __IS_CAMERA_GATEWAY_HPP__
 
 #include <is/is.hpp>
+#include <google/protobuf/empty.pb.h>
 #include "camera-driver.hpp"
 
 namespace is {
@@ -108,19 +109,19 @@ struct CameraGateway {
     is::ServiceProvider provider;
 
     provider.connect(channel);
-    auto queue = provider.make_queue("CameraGateway", std::to_string(id));
+    auto queue = provider.declare_queue("CameraGateway", std::to_string(id));
 
-    provider.delegate<pb::Empty, CameraConfig>(
-        queue, "SetConfig", [this](CameraConfig const& config, pb::Empty*) -> Status {
+    provider.delegate<CameraConfig, is::pb::Empty>(
+        queue, "SetConfig", [this](CameraConfig const& config, is::pb::Empty*) -> Status {
           return this->set_configuration(config);
         });
-    provider.delegate<CameraConfig, FieldSelector>(
+    provider.delegate<FieldSelector, CameraConfig>(
         queue, "GetConfig",
         [this](FieldSelector const& field_selector, CameraConfig* camera_config) -> Status {
           return this->get_configuration(field_selector, camera_config);
         });
 
-    is::info("Stating to capture");
+    is::info("Starting to capture");
     driver->start_capture();
 
     for (;;) {

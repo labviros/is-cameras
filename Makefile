@@ -1,8 +1,5 @@
 CXX = clang++
 CXXFLAGS += -std=c++14 -Wall -Werror
-DEBUGFLAGS = -g -fsanitize=address -fno-omit-frame-pointer
-RELEASEFLAGS = -O3
-BUILDFLAGS = $(RELEASEFLAGS)
 LDFLAGS += -L/usr/local/lib -I/usr/local/include \
 			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient`\
 			-lopencv_imgproc -lopencv_core -lopencv_imgcodecs -lopencv_highgui\
@@ -18,7 +15,14 @@ SERVICE = camera-gateway
 VERSION = 1
 LOCAL_REGISTRY = git.is:5000
 
-all: $(SERVICE) test
+all: debug
+
+debug: CXXFLAGS += -g 
+debug: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+debug: $(SERVICE) test
+
+release: CXXFLAGS += -Wall -Werror -O2
+release: $(SERVICE)
 
 clean:
 	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test
@@ -34,11 +38,7 @@ test: test.o
 	$(PROTOC) -I $(LOCAL_PROTOS_PATH) --cpp_out=. $<
 
 docker:
-	rm -rf libs/
-	mkdir libs/
-	lddcp $(SERVICE) libs/
-	docker build -t $(MAINTAINER)/$(SERVICE):$(VERSION) .
-	rm -rf libs/
+	docker build -t $(MAINTAINER)/$(SERVICE):$(VERSION) --build-arg=SERVICE=$(SERVICE) --build-arg=BINARY=$(SERVICE) .
 
 push_local: docker
 	docker tag $(MAINTAINER)/$(SERVICE):$(VERSION) $(LOCAL_REGISTRY)/$(SERVICE):$(VERSION)

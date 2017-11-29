@@ -58,7 +58,7 @@ class PtgreyDriver : public CameraDriver {
     set_gige_property(fc::PACKET_DELAY, 6000);
     set_gige_property(fc::PACKET_SIZE, 1400);
     ColorSpace color_space;
-    color_space.set_color_space(ColorSpaces::GRAY);
+    color_space.set_value(ColorSpaces::GRAY);
     set_color_space(color_space);
     ImageFormat image_format;
     image_format.set_format(ImageFormats::JPEG);
@@ -145,7 +145,7 @@ class PtgreyDriver : public CameraDriver {
   }
 
   void set_color_space(ColorSpace const& cs) override {
-    auto color_space = cs.color_space();
+    auto color_space = cs.value();
     fc::GigEImageSettings settings;
     auto error = camera.GetGigEImageSettings(&settings);
     if (error != fc::PGRERROR_OK)
@@ -244,7 +244,7 @@ class PtgreyDriver : public CameraDriver {
   ColorSpace get_color_space() override {
     ColorSpace color_space;
     try {
-      color_space.set_color_space(to_color_space.at(pixel_format));
+      color_space.set_value(to_color_space.at(pixel_format));
     } catch (...) { internal_error(StatusCode::OUT_OF_RANGE, "Color Space not recognized"); }
     return color_space;
   }
