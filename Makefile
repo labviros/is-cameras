@@ -4,13 +4,13 @@ LDFLAGS += -L/usr/local/lib -I/usr/local/include \
 			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient`\
 			-lopencv_imgproc -lopencv_core -lopencv_imgcodecs -lopencv_highgui\
 			-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs\
-			-Wl,--no-as-needed -Wl,--as-needed -ldl
+			-lprometheus-cpp -lopentracing -lzipkin -lzipkin_opentracing 
 PROTOC = protoc
 
 LOCAL_PROTOS_PATH = ./msgs/
 vpath %.proto $(LOCAL_PROTOS_PATH)
 
-MAINTAINER = mendonca
+MAINTAINER = viros
 SERVICE = camera-gateway
 VERSION = 1.1
 LOCAL_REGISTRY = git.is:5000
@@ -19,21 +19,18 @@ all: debug
 
 debug: CXXFLAGS += -g 
 debug: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
-debug: $(SERVICE) test ptgrey-test
+debug: $(SERVICE) test
 
 release: CXXFLAGS += -Wall -Werror -O2
-release: $(SERVICE) ptgrey-test
+release: $(SERVICE)
 
 clean:
-	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test ptgrey-test
+	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test
 
 $(SERVICE): $(SERVICE).o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
 test: test.o
-	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
-
-ptgrey-test: ptgrey-test.o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
 .PRECIOUS: %.pb.cc

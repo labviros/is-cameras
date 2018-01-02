@@ -103,12 +103,15 @@ struct CameraGateway {
     } catch (Status const& status) { return status; }
   }
 
-  void run(std::string const& uri, unsigned int const& id) {
+  void run(std::string const& uri, unsigned int const& id, is::Tracer tracer) {
     is::info("Trying to connect to {}", uri);
     auto channel = rmq::Channel::CreateFromUri(uri);
+  
     is::ServiceProvider provider;
-
+    is::RPCLogInterceptor logger(provider);
+    is::RPCTraceInterceptor trace(provider, tracer);
     provider.connect(channel);
+
     auto queue = provider.declare_queue("CameraGateway", std::to_string(id));
 
     provider.delegate<CameraConfig, is::pb::Empty>(
@@ -126,13 +129,17 @@ struct CameraGateway {
 
     for (;;) {
       auto image = driver->grab_image();
-      auto timestamp = driver->last_timestamp();
+      auto span = tracer.new_span("Image");
+      auto msg = is::pack_proto(image);
+      tracer.inject(msg, span->context());
+      is::publish(channel, fmt::format("CameraGateway.{}.Frame", id), msg);
+      span->Finish();
 
-      is::publish(channel, fmt::format("CameraGateway.{}.Frame", id), image);
+      auto timestamp = driver->last_timestamp();
       is::publish(channel, fmt::format("CameraGateway.{}.Timestamp", id), timestamp);
 
       rmq::Envelope::ptr_t envelope;
-      if (channel->BasicConsumeMessage(envelope, 1)) {
+      if (channel->BasicConsumeMessage(envelope, 0)) {
         provider.serve(envelope);
       }
     }
