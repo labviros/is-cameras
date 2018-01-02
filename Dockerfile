@@ -1,16 +1,4 @@
-FROM git.is:5000/is-cpp:1
-
-RUN apt-get clean && \
-    mv /var/lib/apt/lists /tmp && \
-    mkdir -p /var/lib/apt/lists/partial && \
-    apt-get clean && \
-    apt-get update
-
-RUN git clone http://192.168.1.101/labviros/flycapture && \
-    cd flycapture && \
-    bash install && \
-    cd ..
-
+FROM git.is:5000/is-cpp:flycapture-1
 ARG SERVICE=local
 ARG BINARY=local
 COPY . ${SERVICE}
@@ -24,6 +12,7 @@ FROM ubuntu:16.04
 ARG SERVICE=local
 ARG BINARY=local
 COPY --from=0 ${SERVICE}/${BINARY} .
+COPY --from=0 ${SERVICE}/ptgrey-test .
 COPY --from=0 ${SERVICE}/lib /usr/local/lib/
 RUN ldconfig
 CMD ["./camera-gateway"]

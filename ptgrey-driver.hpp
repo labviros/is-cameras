@@ -55,14 +55,13 @@ class PtgreyDriver : public CameraDriver {
     if (error != fc::PGRERROR_OK)
       is::critical("{} {} {}", error.GetFilename(), error.GetLine(), error.GetDescription());
 
-    set_gige_property(fc::PACKET_DELAY, 6000);
-    set_gige_property(fc::PACKET_SIZE, 1400);
     ColorSpace color_space;
     color_space.set_value(ColorSpaces::GRAY);
     set_color_space(color_space);
     ImageFormat image_format;
     image_format.set_format(ImageFormats::JPEG);
     set_image_format(image_format);
+    set_sampling_rate(5.0);
   }
 
   Image grab_image() override {
@@ -198,6 +197,14 @@ class PtgreyDriver : public CameraDriver {
     error = set_gige_settings(settings);
     if (error != fc::PGRERROR_OK)
       internal_error(StatusCode::INVALID_ARGUMENT, "Region of Interest", error);
+  }
+
+  void set_packet_delay(int const& packet_delay) {
+    this->set_gige_property(fc::PACKET_DELAY, packet_delay);
+  }
+
+  void set_packet_size(int const& packet_size) {
+    this->set_gige_property(fc::PACKET_SIZE, packet_size);
   }
 
   void set_exposure(CameraSetting const& exposure) override {
@@ -428,7 +435,7 @@ class PtgreyDriver : public CameraDriver {
 
     auto error = camera.SetGigEProperty(&property);
     if (error != fc::PGRERROR_OK)
-      internal_error("GigE Property", error);
+      internal_error(StatusCode::INTERNAL_ERROR, "GigE Property", error);
   }
 
   fc::Property get_property(fc::PropertyType type) {

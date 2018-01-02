@@ -12,25 +12,28 @@ vpath %.proto $(LOCAL_PROTOS_PATH)
 
 MAINTAINER = mendonca
 SERVICE = camera-gateway
-VERSION = 1
+VERSION = 1.1
 LOCAL_REGISTRY = git.is:5000
 
 all: debug
 
 debug: CXXFLAGS += -g 
 debug: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
-debug: $(SERVICE) test
+debug: $(SERVICE) test ptgrey-test
 
 release: CXXFLAGS += -Wall -Werror -O2
-release: $(SERVICE)
+release: $(SERVICE) ptgrey-test
 
 clean:
-	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test
+	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test ptgrey-test
 
 $(SERVICE): $(SERVICE).o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
 test: test.o
+	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
+
+ptgrey-test: ptgrey-test.o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
 .PRECIOUS: %.pb.cc

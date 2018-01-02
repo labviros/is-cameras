@@ -9,39 +9,48 @@ using namespace is;
 using namespace is::vision;
 using namespace is::common;
 
+ColorSpaces make_color_space(std::string cs) {
+  boost::algorithm::to_lower(cs);
+  if (cs == "rgb")
+    return ColorSpaces::RGB;
+  else
+    return ColorSpaces::GRAY;
+}
+
 int main(int argc, char** argv) {
-  if (argc != 2)
-    exit(1);
-  
-  auto entity = fmt::format("CameraGateway.{}", argv[1]);
-  auto uri = "amqp://rmq.is:30000";
+  std::string uri;
+  std::string camera_id;
+  float fps;
+  std::string color_space;
+
+  is::po::options_description opts("Options");
+  opts.add_options()("uri,u", is::po::value<std::string>(&uri)->required(), "amqp broker uri");
+  opts.add_options()("camera-id,i", is::po::value<std::string>(&camera_id)->required(),
+                     "camera id");
+  opts.add_options()("fps,f", is::po::value<float>(&fps), "frame rate");
+  opts.add_options()("color-space,c", is::po::value<std::string>(&color_space),
+                     "color space [RGB/GRAY]");
+  auto vm = is::parse_program_options(argc, argv, opts);
+
+  CameraConfig config;
+  if (vm.count("fps"))
+    config.mutable_sampling()->set_frequency(fps);
+  if (vm.count("color-space"))
+    config.mutable_image()->mutable_color_space()->set_value(make_color_space(color_space));
+
+  auto entity = fmt::format("CameraGateway.{}", camera_id);
   auto channel = rmq::Channel::CreateFromUri(uri);
   auto tag = is::declare_queue(channel);
+  auto id = is::request(channel, tag, fmt::format("{}.SetConfig", entity), config);
 
-  // CameraConfig config;
-  // config.mutable_image()->mutable_format()->set_format(ImageFormats::JPEG);
-  // config.mutable_image()->mutable_color_space()->set_color_space(ColorSpaces::RGB);
-  // auto resolution = config.mutable_image()->mutable_resolution();;
-  // resolution->set_width(1288 / 1);
-  // resolution->set_height(728 / 1);
-  // config.mutable_sampling()->set_frequency(5.0);
-  // config.mutable_sampling()->mutable_delay()->set_value(0.050);
-
-  FieldSelector fields;
-  fields.add_fields(CameraConfigFields::ALL);
-  auto queue = is::declare_queue(channel);
-  auto id = is::request(channel, queue, fmt::format("{}.GetConfig", entity), fields);
-  
-  auto envelope = is::consume_for(channel, pb::TimeUtil::SecondsToDuration(2));
+  auto envelope = is::consume_for(channel, pb::TimeUtil::SecondsToDuration(5));
   if (envelope != nullptr) {
     auto status = is::rpc_status(envelope);
-    status.PrintDebugString();
-    auto camera_config = is::unpack<CameraConfig>(envelope);
-    if (camera_config) {
-      camera_config->PrintDebugString();
-    }
+    if (status.code() == StatusCode::OK)
+      is::info("{}", status);
+    else
+      is::warn("{}", status);
   }
-
 
   is::subscribe(channel, tag, fmt::format("{}.Frame", entity));
   while (1) {
@@ -50,7 +59,7 @@ int main(int argc, char** argv) {
     if (image) {
       std::vector<unsigned char> data(image->data().begin(), image->data().end());
       cv::Mat frame = cv::imdecode(data, CV_LOAD_IMAGE_COLOR);
-      cv::imshow("frame", frame);
+      cv::imshow(entity, frame);
       cv::waitKey(1);
     }
   }
