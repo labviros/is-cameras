@@ -1,4 +1,4 @@
-FROM git.is:5000/is-cpp:flycapture-1
+FROM git.is:5000/is-cpp:1-flycapture
 ARG SERVICE=local
 ARG BINARY=local
 COPY . ${SERVICE}
@@ -12,7 +12,6 @@ FROM ubuntu:16.04
 ARG SERVICE=local
 ARG BINARY=local
 COPY --from=0 ${SERVICE}/${BINARY} .
-COPY --from=0 ${SERVICE}/ptgrey-test .
 COPY --from=0 ${SERVICE}/lib /usr/local/lib/
 RUN ldconfig
 CMD ["./camera-gateway"]
