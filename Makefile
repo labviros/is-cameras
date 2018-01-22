@@ -1,8 +1,10 @@
 CXX = clang++
-CXXFLAGS += -std=c++14 -Wall -Werror
-LDFLAGS += `pkg-config --libs --cflags protobuf librabbitmq libSimpleAmqpClient opencv` \
-					-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs \
-					-lprometheus-cpp -lopentracing -lzipkin -lzipkin_opentracing 
+CXXFLAGS += -std=c++14 -Wall
+LDFLAGS += -I/usr/local/include -L/usr/local/lib -pthread -lpthread \
+	-lprotobuf -lismsgs -lrabbitmq -lSimpleAmqpClient \
+	-lopencv_core -lopencv_imgcodecs -lflycapture \
+	-lboost_system -lboost_program_options \
+	-lopentracing -lzipkin -lzipkin_opentracing
 PROTOC = protoc
 
 LOCAL_PROTOS_PATH = ./msgs/
@@ -16,18 +18,18 @@ LOCAL_REGISTRY = ninja.local:5000
 
 all: debug
 
-debug: CXXFLAGS += -g 
-debug: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+debug: CXXFLAGS += -g
+debug: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer -lopencv_highgui
 debug: $(SERVICE) $(TEST)
 
-release: CXXFLAGS += -Wall -Werror -O2
+release: CXXFLAGS += -Werror -O2
 release: $(SERVICE)
 
 clean:
 	rm -f *.o *.pb.cc *.pb.h $(SERVICE) $(TEST)
 
 $(SERVICE): $(SERVICE).o
-	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
+	$(CXX)  $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
 $(TEST): $(TEST).o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
