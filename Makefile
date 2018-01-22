@@ -1,10 +1,8 @@
 CXX = clang++
 CXXFLAGS += -std=c++14 -Wall -Werror
-LDFLAGS += -L/usr/local/lib -I/usr/local/include \
-			`pkg-config --libs protobuf librabbitmq libSimpleAmqpClient`\
-			-lopencv_imgproc -lopencv_core -lopencv_imgcodecs -lopencv_highgui\
-			-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs\
-			-lprometheus-cpp -lopentracing -lzipkin -lzipkin_opentracing 
+LDFLAGS += `pkg-config --libs --cflags protobuf librabbitmq libSimpleAmqpClient opencv` \
+					-lflycapture -lpthread -lboost_system -lboost_program_options -lismsgs \
+					-lprometheus-cpp -lopentracing -lzipkin -lzipkin_opentracing 
 PROTOC = protoc
 
 LOCAL_PROTOS_PATH = ./msgs/
@@ -12,25 +10,26 @@ vpath %.proto $(LOCAL_PROTOS_PATH)
 
 MAINTAINER = viros
 SERVICE = camera-gateway
+TEST = test
 VERSION = 1.1
-LOCAL_REGISTRY = git.is:5000
+LOCAL_REGISTRY = ninja.local:5000
 
 all: debug
 
 debug: CXXFLAGS += -g 
 debug: LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
-debug: $(SERVICE) test
+debug: $(SERVICE) $(TEST)
 
 release: CXXFLAGS += -Wall -Werror -O2
 release: $(SERVICE)
 
 clean:
-	rm -f *.o *.pb.cc *.pb.h $(SERVICE) test
+	rm -f *.o *.pb.cc *.pb.h $(SERVICE) $(TEST)
 
 $(SERVICE): $(SERVICE).o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
-test: test.o
+$(TEST): $(TEST).o
 	$(CXX) $^ $(LDFLAGS) $(BUILDFLAGS) -o $@
 
 .PRECIOUS: %.pb.cc
@@ -38,7 +37,7 @@ test: test.o
 	$(PROTOC) -I $(LOCAL_PROTOS_PATH) --cpp_out=. $<
 
 docker:
-	docker build -t $(MAINTAINER)/$(SERVICE):$(VERSION) --build-arg=SERVICE=$(SERVICE) --build-arg=BINARY=$(SERVICE) .
+	docker build -t $(MAINTAINER)/$(SERVICE):$(VERSION) --build-arg=SERVICE=$(SERVICE) .
 
 push_local: docker
 	docker tag $(MAINTAINER)/$(SERVICE):$(VERSION) $(LOCAL_REGISTRY)/$(SERVICE):$(VERSION)
