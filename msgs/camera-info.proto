@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package is.vision;
+
+option java_package = "com.is.vision";
+option java_multiple_files = true;
+
+message CameraEthernet {
+  string ip_address = 1;
+  uint32 subnet_mask = 2;
+  string mac_address = 3;
+}
+
+message CameraInfo {
+  oneof interface {
+    CameraEthernet ethernet = 1;
+    string usb_port = 2;
+  }
+  string serial_number = 3;
+  string model_name = 4;
+  uint32 link_speed = 5;  // in Mpbs for both interface types
+}

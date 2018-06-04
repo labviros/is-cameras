@@ -1,0 +1,10 @@
+{
+  "broker_uri": "amqp://localhost:5672",
+  "camera_ip": "10.10.0.107",
+  "camera_id": 7,
+  "packet_delay": 6000,
+  "packet_size": 1400,
+  "reverse_x": false,
+  "reverse_y": false,
+  "parallelism": 1
+}

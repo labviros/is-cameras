@@ -1,23 +1,21 @@
-# Build container
-FROM viros/is-cpp:1-flycapture
-ARG SERVICE=local
-WORKDIR /opt
-COPY . .
-RUN make release                                                \
- && mkdir deploy                                                \
- && mv ${SERVICE} deploy/service                                \
- && libs=`ldd deploy/service                                    \
-    | awk 'BEGIN{ORS=" "}$1~/^\//{print $1}$3~/^\//{print $3}'  \
-    | sed 's/,$/\n/'`                                           \
- && for lib in $libs;                                           \
-    do                                                          \  
-      dir="deploy`dirname $lib`";                               \
-      mkdir -v -p  $dir;                                        \
-      cp --verbose $lib $dir;                                   \
-    done
+FROM mendonca/is-cameras:1-dev
+
+ADD . /project
+WORKDIR /project
+RUN sudo bash build.sh
+RUN mkdir -v -p /tmp/deploy                                          \
+ && libs=`find build/bin/ -type f -name '*.bin' -exec ldd {} \;      \
+    | cut -d '(' -f 1 | cut -d '>' -f 2 | sort | uniq`               \
+ && for lib in $libs; do                                             \
+        cp --verbose --parents $lib /tmp/deploy;                     \
+        libdir=`dirname $lib`;                                       \
+        find $libdir -type f -name '*.xml' -exec                     \
+            cp --verbose --parents {}  /tmp/deploy \;;               \
+    done                                                             \
+ && cp --verbose `find build/bin/ -type f -name '*.bin'` /tmp/deploy \
+ && cp --verbose options.json /tmp/deploy                            \ 
+ && sudo rm -rf build/
 
 # Deployment container
 FROM scratch
-ENV LD_LIBRARY_PATH=/usr/local/lib
-COPY --from=0 /opt/deploy/ /
-CMD ["/service"]
+COPY --from=0 /tmp/deploy /

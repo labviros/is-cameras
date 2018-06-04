@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "is/msgs/validate.proto";
+
+message Options {
+  string broker_uri = 1;
+  string camera_ip = 2;
+  int32 camera_id = 3 [(is.validate.rules).int32 = {gte: 0}];
+  int32 packet_delay = 4 [(is.validate.rules).int32 = {gte: 0, lte: 6250}];
+  int32 packet_size = 5 [(is.validate.rules).int32 = {gte: 576, lte: 9000}];
+  bool reverse_x = 6;
+  bool reverse_y = 7;
+  int32 parallelism = 8 [(is.validate.rules).int32 = {gte: 0}];
+}

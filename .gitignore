@@ -1,4 +1,1 @@
-test
-.vscode
-camera-gateway
-*.o
+build/
