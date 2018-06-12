@@ -1,5 +1,6 @@
-FROM mendonca/is-cameras:1-dev
+FROM is-cameras/dev
 
+RUN conan search opencv/3.3.1@is/stable 
 ADD . /project
 WORKDIR /project
 RUN sudo bash build.sh
@@ -17,5 +18,5 @@ RUN mkdir -v -p /tmp/deploy                                          \
  && sudo rm -rf build/
 
 # Deployment container
-FROM scratch
+FROM ubuntu:16.04
 COPY --from=0 /tmp/deploy /

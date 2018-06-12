@@ -6,6 +6,7 @@ ADD bootstrap.sh .
 RUN ./bootstrap.sh
 
 ADD conanfile.txt .
-RUN conan install .. -s compiler.libcxx=libstdc++11 --build=missing
+RUN mkdir build/ && cd build/ \
+ && conan install .. -s compiler.libcxx=libstdc++11 --build=missing
 
 RUN sudo rm -rf /tmp/*

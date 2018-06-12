@@ -7,6 +7,8 @@ using namespace is::wire;
 using namespace is::common;
 using namespace is::vision;
 using namespace std::chrono;
+using namespace zipkin;
+using namespace opentracing;
 
 CameraGateway::CameraGateway(std::unique_ptr<CameraDriver> impl) : driver(std::move(impl)) {}
 
@@ -116,12 +118,20 @@ Status CameraGateway::get_configuration(FieldSelector const& field_selector, Cam
   return is::make_status(StatusCode::OK);
 }
 
-void CameraGateway::run(std::string const& uri, unsigned int const& id) {
+void CameraGateway::run(std::string const& uri, unsigned int const& id,
+                        std::string const& zipkin_host, uint32_t const& zipkin_port) {
   is::info("Trying to connect to {}", uri);
 
   auto channel = is::Channel(uri);
   auto provider = is::ServiceProvider(channel);
 
+  ZipkinOtTracerOptions zp_options;
+  zp_options.service_name = fmt::format("CameraGateway.{}", id);
+  zp_options.collector_host = zipkin_host;
+  zp_options.collector_port = zipkin_port;
+  auto tracer = makeZipkinOtTracer(zp_options);
+  channel.set_tracer(tracer);
+  
   provider.delegate<CameraConfig, is::pb::Empty>(
       fmt::format("CameraGateway.{}.SetConfig", id),
       [this](Context*, CameraConfig const& config, is::pb::Empty*) -> Status {
@@ -138,10 +148,17 @@ void CameraGateway::run(std::string const& uri, unsigned int const& id) {
   driver->start_capture();
   for (;;) {
     auto image = driver->grab_image();
+    
     if (image.data().size() > 0) {
       auto im_msg = Message(image);
-      channel.publish(fmt::format("CameraGateway.{}.Frame", id), im_msg);
       auto timestamp = driver->last_timestamp();
+      
+      auto span = tracer->StartSpan("Frame", {opentracing::v1::StartTimestamp(is::to_system_clock(timestamp))});
+      is::OtWriter ot_writer(&im_msg);
+      tracer->Inject(span->context(), ot_writer);
+      channel.publish(fmt::format("CameraGateway.{}.Frame", id), im_msg);
+      span->Finish();
+
       auto ts_msg = Message(timestamp);
       channel.publish(fmt::format("CameraGateway.{}.Timestamp", id), ts_msg);
     }

@@ -4,6 +4,7 @@
 #include <google/protobuf/empty.pb.h>
 #include <is/msgs/common.pb.h>
 #include <is/msgs/wire.pb.h>
+#include <zipkin/opentracing.h>
 #include <chrono>
 #include <is/msgs/utils.hpp>
 #include <is/wire/core.hpp>
@@ -37,7 +38,8 @@ using namespace is::vision;
 
 struct CameraGateway {
   CameraGateway(std::unique_ptr<CameraDriver> impl);
-  void run(std::string const& uri, unsigned int const& id);
+  void run(std::string const& uri, unsigned int const& id, 
+           std::string const& zipkin_host, uint32_t const& zipkin_port);
 
  private:
   Status set_configuration(CameraConfig const& config);

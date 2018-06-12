@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   driver->reverse_y(op.reverse_y());
 
   CameraGateway gateway(std::move(driver));
-  gateway.run(op.broker_uri(), op.camera_id());
+  gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port());
 
   return 0;
 }

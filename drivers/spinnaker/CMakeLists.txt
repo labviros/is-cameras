@@ -3,7 +3,6 @@ include(GNUInstallDirs)
 find_package(is-wire REQUIRED is-wire-core)
 find_package(is-msgs REQUIRED)
 find_package(OpenCV REQUIRED core highgui imgproc)
-find_package(Qt5 COMPONENTS Core Gui Widgets Concurrent Test REQUIRED)
 
 find_path(SPINNAKER_INCLUDE_DIRS 
  NAMES 

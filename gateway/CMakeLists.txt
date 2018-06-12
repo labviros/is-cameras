@@ -32,6 +32,7 @@ set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
 target_link_libraries(
   ${target}
  PRIVATE
+   ${CONAN_LIBS}
  PUBLIC
   is-cameras::is-cameras-drivers
   is-wire::is-wire-core  
@@ -46,6 +47,7 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
   $<INSTALL_INTERFACE:include/${include_dir}> # for clients in install mode
  PRIVATE
+   ${CONAN_LIBS} 
 )
 
 set(export_targets      ${target}Targets)
