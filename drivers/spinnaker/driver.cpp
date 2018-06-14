@@ -1,8 +1,4 @@
 #include "driver.hpp"
-
-#include "SpinGenApi/SpinnakerGenApi.h"
-#include "Spinnaker.h"
-
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
