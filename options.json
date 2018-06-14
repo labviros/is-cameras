@@ -8,5 +8,24 @@
   "packet_size": 1400,
   "reverse_x": false,
   "reverse_y": false,
-  "parallelism": 1
+  "parallelism": -1,
+  "initial_config": {
+    "sampling": {
+      "frequency": 1.0
+    },
+    "camera": {},
+    "image": {
+      "color_space": {
+        "value": "RGB"
+      },
+      "resolution": {
+        "width": 720,
+        "height": 540
+      },
+      "format": {
+        "format": "JPEG",
+        "compression": 0.8
+      }
+    }
+  }
 }

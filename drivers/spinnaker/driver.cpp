@@ -1,8 +1,22 @@
 #include "driver.hpp"
 
+#include "SpinGenApi/SpinnakerGenApi.h"
+#include "Spinnaker.h"
+
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include "internal/info.hpp"
+#include "internal/nodes.hpp"
+
 namespace is {
 namespace camera {
 
+namespace spn {
+using namespace Spinnaker;
+using namespace Spinnaker::GenApi;
+using namespace Spinnaker::GenICam;
+}  // namespace spn
 using namespace is::wire;
 
 SpinnakerDriver::SpinnakerDriver() : is_capturing(false) {

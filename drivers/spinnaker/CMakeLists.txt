@@ -1,8 +1,7 @@
 include(GNUInstallDirs)
 
 find_package(is-wire REQUIRED is-wire-core)
-find_package(is-msgs REQUIRED)
-find_package(OpenCV REQUIRED core highgui imgproc)
+find_package(opencv)
 
 find_path(SPINNAKER_INCLUDE_DIRS 
  NAMES 
@@ -54,10 +53,10 @@ set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
 target_link_libraries(
   ${target}
  PRIVATE
-  ${OpenCV_LIBRARIES}
+  opencv::opencv
  PUBLIC
   ${SPINNAKER_LIBRARY}
-  is-wire::is-wire-core
+  is-wire::is-wire
   is-msgs::is-msgs
   is-cameras::is-cameras-drivers
 )
@@ -69,10 +68,7 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../..> # for headers when building
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
   $<INSTALL_INTERFACE:include/${include_dir}> # for clients in install mode
-  ${SPINNAKER_INCLUDE_DIRS}  
- PRIVATE
-   ${OpenCV_INCLUDE_DIRS}
- PUBLIC
+  ${SPINNAKER_INCLUDE_DIRS}
 )
 
 set(export_targets      ${target}Targets)

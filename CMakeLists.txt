@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-if (EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-  include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-  conan_basic_setup()
+if (EXISTS ${CMAKE_BINARY_DIR}/conan_paths.cmake)
+  include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
 endif()
 
 add_subdirectory(msgs)
@@ -26,6 +25,7 @@ set_property(TARGET options PROPERTY CXX_STANDARD 11)
 target_link_libraries(
   options
  PUBLIC
+  is-msgs::is-msgs
   ${PROTOBUF_LIBRARIES} 
 )
 
@@ -43,11 +43,14 @@ target_include_directories(
 #### Build Camera Gateway
 ######
 
+find_package(opencv)
+
 add_executable(service.bin service.cpp)
 
 target_link_libraries(
   service.bin
  PRIVATE
+  opencv::opencv
   options
   is-cameras::is-cameras-gateway
   is-cameras::is-cameras-drivers-spinnaker

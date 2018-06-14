@@ -6,6 +6,8 @@
 #include "options.pb.h"
 #include "google/protobuf/util/json_util.h"
 
+#include <opencv2/core.hpp>
+
 using namespace is::camera;
 
 Options load_options(int argc, char** argv) {
@@ -46,7 +48,7 @@ int main(int argc, char** argv) {
   driver->reverse_y(op.reverse_y());
 
   CameraGateway gateway(std::move(driver));
-  gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port());
+  gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port(), op.initial_config());
 
   return 0;
 }

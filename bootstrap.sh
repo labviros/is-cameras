@@ -36,14 +36,12 @@ if [[ $EUID == 0 ]]; then
     rm ninja-linux.zip
     mv -u ninja /usr/bin
   fi
+
+  echo "|>>| Installing and upgrading conan..."; 
+  pip install conan conan_package_tools --upgrade
 fi
 
 if [[ $EUID != 0 ]]; then
-  if ! command -v conan > /dev/null; then
-    echo "|>>| Installing conan..."; 
-    pip install --user conan conan_package_tools
-  fi
-
   if ! conan remote list | grep -q "is:"; then 
     echo "|>>| Adding 'is' remote"; 
     conan remote add is https://api.bintray.com/conan/labviros/is

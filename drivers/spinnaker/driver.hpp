@@ -1,21 +1,14 @@
 #pragma once
 
-#include "../camera-driver.hpp"
-#include "internal/info.hpp"
-#include "internal/nodes.hpp"
-
 #include <boost/bimap.hpp>
 #include <chrono>
 #include <cmath>
 #include <iostream>
 #include <is/msgs/utils.hpp>
 #include <is/wire/core/logger.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
 #include <string>
 #include <vector>
-
+#include "../camera-driver.hpp"
 #include "SpinGenApi/SpinnakerGenApi.h"
 #include "Spinnaker.h"
 
@@ -31,15 +24,11 @@ namespace camera {
 
 using namespace is::wire;
 using namespace boost::bimaps;
-namespace spn {
-using namespace Spinnaker;
-using namespace Spinnaker::GenApi;
-using namespace Spinnaker::GenICam;
-}  // namespace spn
 
 struct camera {};
 struct gateway {};
-typedef bimap<tagged<is::camera::ColorSpaces, gateway>, tagged<std::string, camera>> ColorSpaceBimap;
+typedef bimap<tagged<is::camera::ColorSpaces, gateway>, tagged<std::string, camera>>
+    ColorSpaceBimap;
 
 class SpinnakerDriver : public CameraDriver {
  public:
@@ -99,9 +88,9 @@ class SpinnakerDriver : public CameraDriver {
   Status reverse_y(bool enable);
 
  private:
-  spn::SystemPtr cam_system;
-  spn::CameraList cam_list;
-  spn::CameraPtr cam;
+  Spinnaker::SystemPtr cam_system;
+  Spinnaker::CameraList cam_list;
+  Spinnaker::CameraPtr cam;
   int sensor_width, sensor_height, max_binning_h, max_binning_v, step_h, step_v;
   std::string resolution_info;
 
@@ -122,7 +111,7 @@ class SpinnakerDriver : public CameraDriver {
     return status;
   }
 
-  spn::INodeMap& node_map() const;
+  Spinnaker::GenApi::INodeMap& node_map() const;
   std::vector<int> get_compression_parm();
 };
 

@@ -1,4 +1,5 @@
 #include "camera-gateway.hpp"
+#include <zipkin/opentracing.h>
 
 namespace is {
 namespace camera {
@@ -119,7 +120,8 @@ Status CameraGateway::get_configuration(FieldSelector const& field_selector, Cam
 }
 
 void CameraGateway::run(std::string const& uri, unsigned int const& id,
-                        std::string const& zipkin_host, uint32_t const& zipkin_port) {
+                        std::string const& zipkin_host, uint32_t const& zipkin_port, 
+                        is::vision::CameraConfig const& initial_config) {
   is::info("Trying to connect to {}", uri);
 
   auto channel = is::Channel(uri);
@@ -132,6 +134,11 @@ void CameraGateway::run(std::string const& uri, unsigned int const& id,
   auto tracer = makeZipkinOtTracer(zp_options);
   channel.set_tracer(tracer);
   
+  auto log_interceptor = is::LogInterceptor();
+  provider.add_interceptor(log_interceptor);
+
+  this->set_configuration(initial_config);
+
   provider.delegate<CameraConfig, is::pb::Empty>(
       fmt::format("CameraGateway.{}.SetConfig", id),
       [this](Context*, CameraConfig const& config, is::pb::Empty*) -> Status {

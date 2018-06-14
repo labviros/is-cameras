@@ -1,12 +1,14 @@
 [requires]
 opencv/3.3.1@is/stable
-is-wire/1.1.0@is/stable
+is-wire/1.1.2@is/stable
 is-msgs/1.1.2@is/stable
 zipkin-cpp-opentracing/0.3.1@is/stable
 spinnaker/1.10.0.31@is/stable
 
 [generators]
 cmake
+cmake_find_package
+cmake_paths
 
 [options]
 opencv:with_qt=False

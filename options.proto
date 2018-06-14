@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "is/msgs/validate.proto";
+import "is/msgs/camera.proto";
 
 message Options {
   string broker_uri = 1;
@@ -12,5 +13,6 @@ message Options {
   int32 packet_size = 7 [(is.validate.rules).int32 = {gte: 576, lte: 9000}];
   bool reverse_x = 8;
   bool reverse_y = 9;
-  int32 parallelism = 10 [(is.validate.rules).int32 = {gte: 0}];
+  int32 parallelism = 10;
+  is.vision.CameraConfig initial_config = 11;
 }

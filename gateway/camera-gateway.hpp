@@ -2,13 +2,14 @@
 #define __IS_CAMERA_GATEWAY_HPP__
 
 #include <google/protobuf/empty.pb.h>
+#include <is/msgs/camera.pb.h>
 #include <is/msgs/common.pb.h>
 #include <is/msgs/wire.pb.h>
-#include <zipkin/opentracing.h>
 #include <chrono>
 #include <is/msgs/utils.hpp>
 #include <is/wire/core.hpp>
 #include <is/wire/rpc.hpp>
+#include <is/wire/rpc/log-interceptor.hpp>
 #include <memory>
 #include "../drivers/camera-driver.hpp"
 
@@ -38,8 +39,8 @@ using namespace is::vision;
 
 struct CameraGateway {
   CameraGateway(std::unique_ptr<CameraDriver> impl);
-  void run(std::string const& uri, unsigned int const& id, 
-           std::string const& zipkin_host, uint32_t const& zipkin_port);
+  void run(std::string const& uri, unsigned int const& id, std::string const& zipkin_host,
+           uint32_t const& zipkin_port, is::vision::CameraConfig const& initial_config);
 
  private:
   Status set_configuration(CameraConfig const& config);
