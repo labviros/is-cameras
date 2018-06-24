@@ -4,6 +4,7 @@
 #include <opencv2/imgproc.hpp>
 #include "internal/info.hpp"
 #include "internal/nodes.hpp"
+#include <google/protobuf/util/message_differencer.h>
 
 namespace is {
 namespace camera {
@@ -63,8 +64,8 @@ void SpinnakerDriver::connect(CameraInfo const& cam_info) {
     this->cam_list = this->cam_system->GetCameras();
     this->cam = this->cam_list.GetBySerial(cam_info.serial_number());
     this->cam->Init();
-  } catch (Spinnaker::Exception& e) {
-    is::critical("[{}] {}", "Camera Initialize", e.what());
+  } catch (Spinnaker::Exception& e) { 
+    is::critical("[{}] {}", "Camera Initialize", e.what()); 
   }
 
   // Initial configuration
@@ -78,7 +79,7 @@ void SpinnakerDriver::connect(CameraInfo const& cam_info) {
   ImageFormat imgf;
   imgf.set_format(ImageFormats::JPEG);
   this->set_image_format(imgf);
-  
+
   pb::FloatValue sr;
   sr.set_value(1.0);
   this->set_sampling_rate(sr);
@@ -131,40 +132,49 @@ void SpinnakerDriver::stop_capture() {
   try {
     this->cam->EndAcquisition();
     this->is_capturing = false;
-  } catch (Spinnaker::Exception& e) {
-    is::warn("[{}] {}", "Stop Capture", e.what());
+  } catch (Spinnaker::Exception& e) { 
+    is::warn("[{}] {}", "Stop Capture", e.what()); 
   }
 }
 
 Image SpinnakerDriver::grab_image() {
-    spn::ImagePtr image = this->cam->GetNextImage();
-    if (image->IsIncomplete())
-      is::warn("[Grab Image] Image incomplete");
-    this->timestamp = is::to_timestamp(std::chrono::system_clock::now());
+  spn::ImagePtr image;
+  try {
+    image = this->cam->GetNextImage(3000);
+  } catch (...) {
+    is::error("[Grab Image] Timeouted");
+    this->stop_capture();
+    this->start_capture();
+    return Image();
+  }
 
-    auto rows = image->GetHeight();
-    auto cols = image->GetWidth();
-    auto data = image->GetData();
-    auto stride = image->GetStride();
-    auto pixel_format = image->GetPixelFormat();
-    cv::Mat frame;
-    if (pixel_format == spn::PixelFormatEnums::PixelFormat_Mono8)
-      frame = cv::Mat(rows, cols, CV_8UC1, static_cast<unsigned char*>(data), stride);
-    else if (pixel_format == spn::PixelFormatEnums::PixelFormat_BGR8)
-      frame = cv::Mat(rows, cols, CV_8UC3, static_cast<unsigned char*>(data), stride);
-    else {
-      // throw std::runtime_error("[Grab Image] Bad image type");
-      is::error("[Grab Image] Bad image type");
-      return Image();
-    }
-    auto compression_parm = get_compression_parm();
-    std::vector<unsigned char> image_data;
-    cv::imencode(fmt::format(".{}", ImageFormats_Name(image_format.format())), frame, image_data, compression_parm);
-    Image compressed;
-    auto compressed_data = compressed.mutable_data();
-    compressed_data->resize(image_data.size());
-    std::copy(image_data.begin(), image_data.end(), compressed_data->begin());
-    return compressed;
+  if (image->IsIncomplete())
+    is::warn("[Grab Image] Image incomplete");
+  this->timestamp = is::to_timestamp(std::chrono::system_clock::now());
+
+  auto rows = image->GetHeight();
+  auto cols = image->GetWidth();
+  auto data = image->GetData();
+  auto stride = image->GetStride();
+  auto pixel_format = image->GetPixelFormat();
+  cv::Mat frame;
+  if (pixel_format == spn::PixelFormatEnums::PixelFormat_Mono8)
+    frame = cv::Mat(rows, cols, CV_8UC1, static_cast<unsigned char*>(data), stride);
+  else if (pixel_format == spn::PixelFormatEnums::PixelFormat_BGR8)
+    frame = cv::Mat(rows, cols, CV_8UC3, static_cast<unsigned char*>(data), stride);
+  else {
+    // throw std::runtime_error("[Grab Image] Bad image type");
+    is::error("[Grab Image] Bad image type");
+    return Image();
+  }
+  auto compression_parm = get_compression_parm();
+  std::vector<unsigned char> image_data;
+  cv::imencode(fmt::format(".{}", ImageFormats_Name(image_format.format())), frame, image_data, compression_parm);
+  Image compressed;
+  auto compressed_data = compressed.mutable_data();
+  compressed_data->resize(image_data.size());
+  std::copy(image_data.begin(), image_data.end(), compressed_data->begin());
+  return compressed;
 }
 
 pb::Timestamp SpinnakerDriver::last_timestamp() {
@@ -202,6 +212,16 @@ Status SpinnakerDriver::get_sampling_rate(pb::FloatValue* rate) {
 }
 
 Status SpinnakerDriver::set_color_space(ColorSpace const& color_space) {
+  ColorSpace current_color_space;
+  auto status = this->get_color_space(&current_color_space);
+  if (status.code() != StatusCode::OK) {
+    auto why = fmt::format("Failed to read color space before set it.");
+    return internal_error(StatusCode::INTERNAL_ERROR, why);
+  }
+  if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
+    return is::make_status(StatusCode::OK);
+  }
+
   auto function = [&](ColorSpace const& cs) -> Status {
     auto cs_gw = cs.value();
     auto pos = this->color_space_map.by<gateway>().find(cs_gw);
@@ -228,6 +248,15 @@ Status SpinnakerDriver::get_color_space(ColorSpace* color_space) {
 }
 
 Status SpinnakerDriver::set_resolution(Resolution const& resolution) {
+  Resolution current_resolution;
+  auto status = this->get_resolution(&current_resolution);
+  if (status.code() != StatusCode::OK) {
+    auto why = fmt::format("Failed to read resolution before set it.");
+    return internal_error(StatusCode::INTERNAL_ERROR, why);
+  }
+  if (google::protobuf::util::MessageDifferencer::Equivalent(current_resolution, resolution)) {
+    return is::make_status(StatusCode::OK);
+  }
   // Changing the size of the image or the pixel encoding
   // format requires the camera to be stopped and restarted.
   auto function = [&](Resolution const& res) -> Status {
@@ -441,18 +470,23 @@ Status SpinnakerDriver::get_white_balance_rv(CameraSetting* wb) {
 }
 
 Status SpinnakerDriver::set_sharpness(CameraSetting const& sharpness) {
+  /*
   if (sharpness.automatic()) {
     is_assert_ok(set_op_bool(node_map(), "SharpeningAuto", true));
   } else {
     is_assert_ok(set_op_bool(node_map(), "SharpeningAuto", false));
     OpRange<float> range;
     is_assert_ok(minmax_op_float(node_map(), "SharpeningThreshold", &range));
-    is_assert_ok(set_op_float(node_map(), "SharpeningThreshold", range.to_value(sharpness.ratio())));
+    is_assert_ok(
+        set_op_float(node_map(), "SharpeningThreshold", range.to_value(sharpness.ratio())));
   }
   return is::make_status(StatusCode::OK);
+  */
+  return internal_error(StatusCode::UNIMPLEMENTED, "\'Sharpness\' property not implemented for this camera.");
 }
 
 Status SpinnakerDriver::get_sharpness(CameraSetting* sharpness) {
+  /*
   auto automatic = false;
   is_assert_ok(get_op_bool(node_map(), "SharpeningAuto", &automatic));
   float value;
@@ -462,6 +496,8 @@ Status SpinnakerDriver::get_sharpness(CameraSetting* sharpness) {
   sharpness->set_automatic(automatic);
   sharpness->set_ratio(range.to_ratio(value));
   return is::make_status(StatusCode::OK);
+  */
+  return internal_error(StatusCode::UNIMPLEMENTED, "\'Sharpness\' property not implemented for this camera.");
 }
 
 Status SpinnakerDriver::set_gamma(CameraSetting const& gamma) {

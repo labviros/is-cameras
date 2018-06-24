@@ -83,22 +83,19 @@ Status CameraGateway::get_configuration(FieldSelector const& field_selector, Cam
     end = _field_selector.fields().end();
   }
 
-  std::for_each(begin, end, [&](auto field) {
+  for (auto it = begin; it != end; ++it) {
+    auto field = *it;
     if (field == CameraConfigFields::IMAGE_SETTINGS) {
       auto img_s = camera_config->mutable_image();
       is_assert_get(driver->get_resolution(img_s->mutable_resolution()), img_s->release_resolution());
       is_assert_get(driver->get_color_space(img_s->mutable_color_space()), img_s->release_color_space());
       is_assert_get(driver->get_image_format(img_s->mutable_format()), img_s->release_format());
       is_assert_get(driver->get_region_of_interest(img_s->mutable_region()), img_s->release_region());
-    }
-
-    if (field == CameraConfigFields::SAMPLING_SETTINGS) {
+    } else if (field == CameraConfigFields::SAMPLING_SETTINGS) {
       auto smp_s = camera_config->mutable_sampling();
       is_assert_get(driver->get_sampling_rate(smp_s->mutable_frequency()), smp_s->release_frequency());
       is_assert_get(driver->get_delay(smp_s->mutable_delay()), smp_s->release_delay());
-    }
-
-    if (field == CameraConfigFields::CAMERA_SETTINGS) {
+    } else  if (field == CameraConfigFields::CAMERA_SETTINGS) {
       auto cam_s = camera_config->mutable_camera();
       is_assert_get(driver->get_shutter(cam_s->mutable_shutter()), cam_s->release_shutter());
       is_assert_get(driver->get_gain(cam_s->mutable_gain()), cam_s->release_gain());
@@ -114,7 +111,7 @@ Status CameraGateway::get_configuration(FieldSelector const& field_selector, Cam
       is_assert_get(driver->get_zoom(cam_s->mutable_zoom()), cam_s->release_zoom());
       is_assert_get(driver->get_iris(cam_s->mutable_iris()), cam_s->release_iris());
     }
-  });
+  }
 
   return is::make_status(StatusCode::OK);
 }
