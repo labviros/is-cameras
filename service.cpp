@@ -1,4 +1,5 @@
 #include "drivers/spinnaker/driver.hpp"
+#include "drivers/flycapture2/driver.hpp"
 #include "gateway/camera-gateway.hpp"
 
 #include <fstream>
@@ -33,22 +34,27 @@ int main(int argc, char** argv) {
   for (auto& info : cam_infos) {
     is::info("{}", info);
   }
-  auto cam_info = std::find_if(cam_infos.begin(), cam_infos.end(),
-                               [&](auto& c) { return c.ethernet().ip_address() == op.camera_ip(); });
-  if (cam_info == cam_infos.end()) {
-    is::critical("Camera with IP {} not found.", op.camera_ip());
+  cam_infos = FlyCapture2Driver::find_cameras();
+  for (auto& info : cam_infos) {
+    is::info("{}", info);
   }
 
-  is::info("Connecting to cammera {}", op.camera_ip());
-  auto driver = std::make_unique<SpinnakerDriver>();
-  driver->connect(*cam_info);
-  driver->set_packet_delay(op.packet_delay());
-  driver->set_packet_size(op.packet_size());
-  driver->reverse_x(op.reverse_x());
-  driver->reverse_y(op.reverse_y());
+  // auto cam_info = std::find_if(cam_infos.begin(), cam_infos.end(),
+  //                              [&](auto& c) { return c.ethernet().ip_address() == op.camera_ip(); });
+  // if (cam_info == cam_infos.end()) {
+  //   is::critical("Camera with IP {} not found.", op.camera_ip());
+  // }
 
-  CameraGateway gateway(std::move(driver));
-  gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port(), op.initial_config());
+  // is::info("Connecting to cammera {}", op.camera_ip());
+  // auto driver = std::make_unique<SpinnakerDriver>();
+  // driver->connect(*cam_info);
+  // driver->set_packet_delay(op.packet_delay());
+  // driver->set_packet_size(op.packet_size());
+  // driver->reverse_x(op.reverse_x());
+  // driver->reverse_y(op.reverse_y());
+
+  // CameraGateway gateway(std::move(driver));
+  // gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port(), op.initial_config());
 
   return 0;
 }

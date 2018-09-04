@@ -54,6 +54,7 @@ target_link_libraries(
   options
   is-cameras::is-cameras-gateway
   is-cameras::is-cameras-drivers-spinnaker
+  is-cameras::is-cameras-drivers-flycapture2
 )
 
 set_property(TARGET service.bin PROPERTY CXX_STANDARD 14)

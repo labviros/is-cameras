@@ -4,6 +4,7 @@ is-wire/1.1.2@is/stable
 is-msgs/1.1.2@is/stable
 zipkin-cpp-opentracing/0.3.1@is/stable
 spinnaker/1.10.0.31@is/stable
+flycapture2/2.12.3.31@is/stable
 
 [generators]
 cmake
