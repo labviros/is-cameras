@@ -5,25 +5,30 @@
 #include <is/msgs/utils.hpp>
 #include <is/wire/core/logger.hpp>
 #include <string>
-#include <tuple>
+#include "FlyCapture2.h"
+#include "drivers/utils/utils.hpp"
+
+#define fc_assert_ok(error, type)                                                         \
+  do {                                                                                    \
+    if (error != fc::PGRERROR_OK) {                                                       \
+      auto why = fmt::format("[{}] {}", get_property_name(type), error.GetDescription()); \
+      return internal_error(StatusCode::INTERNAL_ERROR, why);                             \
+    }                                                                                     \
+  } while (0)
 
 namespace is {
 namespace camera {
 
 using namespace is::wire;
 using namespace is::common;
+namespace fc = FlyCapture2;
 
-template <typename T>
-struct OpRange {
-  T min;
-  T max;
-  T to_ratio(T const& value) { return (value - min) / (max - min); }
-  T to_value(T const& ratio) { return ratio * (max - min) + min; }
-};  
-
-Status internal_error(StatusCode code, std::string const& why);
-Status writeability_error(std::string const& name);
-Status readability_error(std::string const& name);
+Status set_gige_property(fc::GigECamera& camera, fc::GigEPropertyType type, int value);
+Status set_property_abs(fc::GigECamera& camera, fc::PropertyType type, float value, bool is_ratio = false);
+Status get_property_abs(fc::GigECamera& camera, fc::PropertyType type, float* value, bool is_ratio = false);
+Status set_image_settings(fc::GigECamera& camera, fc::GigEImageSettings const& settings);
+Status get_image_settings(fc::GigECamera& camera, fc::GigEImageSettings* settings);
+std::string get_property_name(fc::PropertyType type);
 
 }  // namespace camera
 }  // namespace is

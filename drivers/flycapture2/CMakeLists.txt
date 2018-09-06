@@ -59,6 +59,7 @@ target_link_libraries(
   is-wire::is-wire
   is-msgs::is-msgs
   is-cameras::is-cameras-drivers
+  is-cameras::is-cameras-utils
 )
 
 # header dependencies

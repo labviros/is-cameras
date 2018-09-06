@@ -38,7 +38,7 @@ using namespace is::common;
 using namespace is::vision;
 
 struct CameraGateway {
-  CameraGateway(std::unique_ptr<CameraDriver> impl);
+  CameraGateway(CameraDriver* impl);
   void run(std::string const& uri, unsigned int const& id, std::string const& zipkin_host,
            uint32_t const& zipkin_port, is::vision::CameraConfig const& initial_config);
 
@@ -46,7 +46,7 @@ struct CameraGateway {
   Status set_configuration(CameraConfig const& config);
   Status get_configuration(FieldSelector const& field_selector, CameraConfig* camera_config);
 
-  std::unique_ptr<CameraDriver> driver;
+  CameraDriver* driver;
 };
 
 }  // namespace camera

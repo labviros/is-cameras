@@ -77,10 +77,10 @@ class SpinnakerDriver : public CameraDriver {
   Status set_iris(CameraSetting const& iris) override;
   Status get_iris(CameraSetting* iris) override;
 
-  Status set_packet_delay(int const& packet_delay);
-  Status set_packet_size(int const& packet_size);
-  Status reverse_x(bool enable);
-  Status reverse_y(bool enable);
+  Status set_packet_delay(int const& packet_delay) override;
+  Status set_packet_size(int const& packet_size) override;
+  Status reverse_x(bool enable) override;
+  Status reverse_y(bool enable) override;
 
  private:
   struct camera {};

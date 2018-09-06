@@ -26,7 +26,6 @@ std::vector<CameraInfo> FlyCapture2Driver::find_cameras() {
   unsigned int n_cameras;
   bus.GetNumOfCameras(&n_cameras);
   std::vector<CameraInfo> cam_infos;
-  is::info("{} cameras found", n_cameras);
   std::vector<fc::CameraInfo> fc_cam_infos(n_cameras);
   auto error = fc::BusManager::DiscoverGigECameras(fc_cam_infos.data(), &n_cameras);
   if (error != fc::PGRERROR_OK)
@@ -52,36 +51,73 @@ void FlyCapture2Driver::connect(CameraInfo const& cam_info) {
     is::critical("[Camera Initialize] {}", error.GetDescription());
   error = camera.Connect(this->uid);
   if (error != fc::PGRERROR_OK)
-    is::critical("[Camera connections] {} ", error.GetDescription());
-  // try {
-  //   this->cam_system = spn::System::GetInstance();
-  //   this->cam_list = this->cam_system->GetCameras();
-  //   this->cam = this->cam_list.GetBySerial(cam_info.serial_number());
-  //   this->cam->Init();
-  // } catch (Spinnaker::Exception& e) {
-  //   is::critical("[{}] {}", "Camera Initialize", e.what());
-  // }
+    is::critical("[Camera Connection] {} ", error.GetDescription());
 
-  // // Initial configuration
-  // this->set_packet_size(1400);
-  // this->set_packet_delay(6000);
-  // this->reverse_x(false);
-  // this->reverse_y(false);
+  // retrieve available resolutions
+  for (auto i = 0; i < fc::NUM_MODES; ++i) {
+    bool is_available;
+    auto error = this->camera.QueryGigEImagingMode(static_cast<fc::Mode>(i), &is_available);
+    if (error != fc::PGRERROR_OK)
+      continue;
+    if (!is_available)
+      continue;
+    error = this->camera.SetGigEImagingMode(static_cast<fc::Mode>(i));
+    if (error != fc::PGRERROR_OK)
+      continue;
+    fc::Format7Info f7info;
+    bool supported;
+    fc::Camera _camera;
+    this->camera.Disconnect();
+    _camera.Connect(this->uid);
+    error = _camera.GetFormat7Info(&f7info, &supported);
+    _camera.Disconnect();
+    this->camera.Connect(this->uid);
+    if (error != fc::PGRERROR_OK)
+      continue;
+    auto has_mono8 = f7info.pixelFormatBitField & fc::PIXEL_FORMAT_MONO8;
+    auto has_rgb8 = f7info.pixelFormatBitField & fc::PIXEL_FORMAT_RGB8;
+    if (!(has_mono8) || !(has_rgb8))
+      continue;
+    fc::GigEImageSettingsInfo info;
+    error = this->camera.GetGigEImageSettingsInfo(&info);
+    if (error != fc::PGRERROR_OK)
+      continue;
+    Resolution res;
+    res.set_width(info.maxWidth);
+    res.set_height(info.maxHeight);
+    this->resolutions.push_back(std::make_pair(res, static_cast<fc::Mode>(i)));
+  }
+  auto pos = std::unique(this->resolutions.begin(), this->resolutions.end(), [](auto& lhs, auto& rhs) {
+    return google::protobuf::util::MessageDifferencer::Equivalent(lhs.first, rhs.first);
+  });
+  this->resolutions.erase(pos, this->resolutions.end());
+  std::for_each(this->resolutions.begin(), this->resolutions.end(), [&](auto& res) {
+    this->resolution_info = fmt::format("{} {}x{}", this->resolution_info, res.first.width(), res.first.height());
+  });
+
+  // Initial configuration
+  this->set_packet_size(1400);
+  this->set_packet_delay(6000);
+  this->reverse_x(false);
+  this->reverse_y(false);
   // set_op_enum(node_map(), "TriggerMode", "Off");
   // set_op_enum(node_map(), "TriggerSelector", "AcquisitionStart");
 
-  // ImageFormat imgf;
-  // imgf.set_format(ImageFormats::JPEG);
-  // this->set_image_format(imgf);
-
-  // pb::FloatValue sr;
-  // sr.set_value(1.0);
-  // this->set_sampling_rate(sr);
-  // ColorSpace color_space;
-  // color_space.set_value(ColorSpaces::GRAY);
-  // this->set_color_space(color_space);
-  // set_op_bool(node_map(), "IspEnable", true);  // necessery to pixel binning and sharpening works, just can set when
-  // colorspace is GRAY
+  ImageFormat imgf;
+  imgf.set_format(ImageFormats::JPEG);
+  this->set_image_format(imgf);
+  // set higher resolution
+  error = this->camera.SetGigEImageBinningSettings(1, 1);
+  if (error != fc::PGRERROR_OK)
+    is::critical("Unable to set higher resolution");
+  pb::FloatValue sr;
+  sr.set_value(1.0);
+  this->set_sampling_rate(sr);
+  ColorSpace color_space;
+  color_space.set_value(ColorSpaces::GRAY);
+  this->set_color_space(color_space);
+  // set_op_bool(node_map(), "IspEnable", true);  // necessery to pixel binning and sharpening works, just can set
+  // when colorspace is GRAY
   // // fix-me: sometimes after enable ISP, shapening optinios aren't available to write.
   // set_op_bool(node_map(), "SharpeningEnable", true);
   // set_op_bool(node_map(), "SharpeningAuto", true);
@@ -115,60 +151,64 @@ void FlyCapture2Driver::connect(CameraInfo const& cam_info) {
 }
 
 void FlyCapture2Driver::start_capture() {
-  // try {
-  //   this->cam->BeginAcquisition();
-  //   this->is_capturing = true;
-  // } catch (Spinnaker::Exception& e) {
-  //   is::warn("[{}] {}", "Start Capture", e.what());
-  // }
+  auto error = camera.StartCapture();
+  if (error != fc::PGRERROR_OK) {
+    is::warn("[Start Capture] {}", error.GetDescription());
+  } else {
+    this->is_capturing = true;
+  }
 }
 
 void FlyCapture2Driver::stop_capture() {
-  // try {
-  //   this->cam->EndAcquisition();
-  //   this->is_capturing = false;
-  // } catch (Spinnaker::Exception& e) {
-  //   is::warn("[{}] {}", "Stop Capture", e.what());
-  // }
+  auto error = camera.StopCapture();
+  if (error != fc::PGRERROR_OK) {
+    is::warn("[Stop Capture] {}", error.GetDescription());
+  } else {
+    this->is_capturing = false;
+  }
 }
 
 Image FlyCapture2Driver::grab_image() {
-  // spn::ImagePtr image;
-  // try {
-  //   image = this->cam->GetNextImage(3000);
-  // } catch (...) {
-  //   is::error("[Grab Image] Timeouted");
-  //   this->stop_capture();
-  //   this->start_capture();
-  //   return Image();
-  // }
+  fc::Image image;
+  Defer clean_image([&] { image.ReleaseBuffer(); });
+  auto error = camera.RetrieveBuffer(&image);
+  if (error != fc::PGRERROR_OK) {
+    is::warn("[Grab Image] {}", error.GetDescription());
+    return Image();
+  }
+  this->timestamp = is::to_timestamp(std::chrono::system_clock::now());
+  auto pixel_format = image.GetPixelFormat();
 
-  // if (image->IsIncomplete())
-  //   is::warn("[Grab Image] Image incomplete");
-  // this->timestamp = is::to_timestamp(std::chrono::system_clock::now());
+  fc::Image buffer;
+  Defer clean_buffer([&] {
+    if (pixel_format == fc::PIXEL_FORMAT_BGR)
+      buffer.ReleaseBuffer();
+  });
+  cv::Mat frame;
+  if (pixel_format == fc::PIXEL_FORMAT_MONO8) {
+    auto stride = image.GetDataSize() / image.GetRows();
+    frame = cv::Mat(image.GetRows(), image.GetCols(), CV_8UC1, image.GetData(), stride);
+  } else if (pixel_format == fc::PIXEL_FORMAT_RGB8) {
+    error = image.Convert(fc::PIXEL_FORMAT_BGR, &buffer);
+    if (error != fc::PGRERROR_OK) {
+      is::warn("[Grab Image] {}", error.GetDescription());
+      return Image();
+    }
+    auto stride = buffer.GetDataSize() / buffer.GetRows();
+    frame = cv::Mat(buffer.GetRows(), buffer.GetCols(), CV_8UC3, buffer.GetData(), stride);
+  } else {
+    is::warn("[Grab Image] Bad image type");
+    return Image();
+  }
 
-  // auto rows = image->GetHeight();
-  // auto cols = image->GetWidth();
-  // auto data = image->GetData();
-  // auto stride = image->GetStride();
-  // auto pixel_format = image->GetPixelFormat();
-  // cv::Mat frame;
-  // if (pixel_format == spn::PixelFormatEnums::PixelFormat_Mono8)
-  //   frame = cv::Mat(rows, cols, CV_8UC1, static_cast<unsigned char*>(data), stride);
-  // else if (pixel_format == spn::PixelFormatEnums::PixelFormat_BGR8)
-  //   frame = cv::Mat(rows, cols, CV_8UC3, static_cast<unsigned char*>(data), stride);
-  // else {
-  //   // throw std::runtime_error("[Grab Image] Bad image type");
-  //   is::error("[Grab Image] Bad image type");
-  //   return Image();
-  // }
-  // auto compression_parm = get_compression_parm();
-  // std::vector<unsigned char> image_data;
-  // cv::imencode(fmt::format(".{}", ImageFormats_Name(image_format.format())), frame, image_data, compression_parm);
+  auto compression_parm = get_compression_parm();
+  auto format = fmt::format(".{}", ImageFormats_Name(image_format.format()));
+  std::vector<unsigned char> image_data;
+  cv::imencode(format, frame, image_data, compression_parm);
   Image compressed;
-  // auto compressed_data = compressed.mutable_data();
-  // compressed_data->resize(image_data.size());
-  // std::copy(image_data.begin(), image_data.end(), compressed_data->begin());
+  auto compressed_data = compressed.mutable_data();
+  compressed_data->resize(image_data.size());
+  std::copy(image_data.begin(), image_data.end(), compressed_data->begin());
   return compressed;
 }
 
@@ -194,96 +234,105 @@ Status FlyCapture2Driver::get_image_format(ImageFormat* imgf) {
 }
 
 Status FlyCapture2Driver::set_sampling_rate(pb::FloatValue const& rate) {
-  // is_assert_ok(set_op_bool(node_map(), "AcquisitionFrameRateEnable", true));
-  // is_assert_ok(set_op_float(node_map(), "AcquisitionFrameRate", rate.value()));
-  return is::make_status(StatusCode::OK);
+  return set_property_abs(this->camera, fc::FRAME_RATE, rate.value());
 }
 
 Status FlyCapture2Driver::get_sampling_rate(pb::FloatValue* rate) {
-  // float value = 0.0f;
-  // is_assert_ok(get_op_float(node_map(), "AcquisitionFrameRate", &value));
-  // rate->set_value(value);
+  float value = 0.0f;
+  is_assert_ok(get_property_abs(this->camera, fc::FRAME_RATE, &value));
+  rate->set_value(value);
   return is::make_status(StatusCode::OK);
 }
 
 Status FlyCapture2Driver::set_color_space(ColorSpace const& color_space) {
-  // ColorSpace current_color_space;
-  // auto status = this->get_color_space(&current_color_space);
-  // if (status.code() != StatusCode::OK) {
-  //   auto why = fmt::format("Failed to read color space before set it.");
-  //   return internal_error(StatusCode::INTERNAL_ERROR, why);
-  // }
-  // if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
-  //   return is::make_status(StatusCode::OK);
-  // }
+  fc::GigEImageSettings settings;
+  is_assert_ok(get_image_settings(this->camera, &settings));
 
-  // auto function = [&](ColorSpace const& cs) -> Status {
-  //   auto cs_gw = cs.value();
-  //   auto pos = this->color_space_map.by<gateway>().find(cs_gw);
-  //   if (pos == this->color_space_map.by<gateway>().end()) {
-  //     auto why = fmt::format("Invalid type \"{}\". Valid types: \"RGB\" and \"GRAY\"", ColorSpaces_Name(cs_gw));
-  //     return internal_error(StatusCode::INVALID_ARGUMENT, why);
-  //   }
-  //   auto cs_cam = pos->get<camera>();
-  //   is_assert_ok(set_op_enum(node_map(), "PixelFormat", cs_cam));
-  //   return is::make_status(StatusCode::OK);
-  // };
-  // return control_capture(function, color_space);
-  return is::make_status(StatusCode::OK);
+  auto pos = this->color_space_map.by<Camera>().find(settings.pixelFormat);
+  if (pos != this->color_space_map.by<Camera>().end()) {
+    auto cs_gw = pos->get<Gateway>();
+    ColorSpace current_color_space;
+    current_color_space.set_value(cs_gw);
+    if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
+      return is::make_status(StatusCode::OK);
+    }
+  }
+
+  auto function = [&](ColorSpace const& cs) -> Status {
+    auto cs_gw = cs.value();
+    auto pos = this->color_space_map.by<Gateway>().find(cs_gw);
+    if (pos == this->color_space_map.by<Gateway>().end()) {
+      auto why = fmt::format("Invalid type \"{}\". Valid types: \"RGB\" and \"GRAY\"", ColorSpaces_Name(cs_gw));
+      return internal_error(StatusCode::INVALID_ARGUMENT, why);
+    }
+    auto cs_cam = pos->get<Camera>();
+    settings.pixelFormat = cs_cam;
+    return set_image_settings(this->camera, settings);
+  };
+  return control_capture(function, color_space);
 }
 
 Status FlyCapture2Driver::get_color_space(ColorSpace* color_space) {
-  // std::string cs_cam;
-  // is_assert_ok(get_op_enum(node_map(), "PixelFormat", &cs_cam));
-  // auto pos = this->color_space_map.by<camera>().find(cs_cam);
-  // if (pos == this->color_space_map.by<camera>().end())
-  //   return internal_error(StatusCode::OUT_OF_RANGE, fmt::format("Color Space {} not recognized", cs_cam));
-  // auto cs_gw = pos->get<gateway>();
-  // color_space->set_value(cs_gw);
+  fc::GigEImageSettings settings;
+  is_assert_ok(get_image_settings(this->camera, &settings));
+  auto pos = this->color_space_map.by<Camera>().find(settings.pixelFormat);
+  if (pos == this->color_space_map.by<Camera>().end())
+    return internal_error(StatusCode::OUT_OF_RANGE, "Current color space not recognized");
+  auto cs_gw = pos->get<Gateway>();
+  color_space->set_value(cs_gw);
   return is::make_status(StatusCode::OK);
 }
 
 Status FlyCapture2Driver::set_resolution(Resolution const& resolution) {
-  // Resolution current_resolution;
-  // auto status = this->get_resolution(&current_resolution);
-  // if (status.code() != StatusCode::OK) {
-  //   auto why = fmt::format("Failed to read resolution before set it.");
-  //   return internal_error(StatusCode::INTERNAL_ERROR, why);
-  // }
-  // if (google::protobuf::util::MessageDifferencer::Equivalent(current_resolution, resolution)) {
-  //   return is::make_status(StatusCode::OK);
-  // }
+  fc::GigEImageSettingsInfo info;
+  auto error = this->camera.GetGigEImageSettingsInfo(&info);
+  if (error != fc::PGRERROR_OK)
+    return internal_error(StatusCode::INTERNAL_ERROR, "Unable to read current image settings info");
+
+  Resolution current_resolution;
+  current_resolution.set_width(info.maxWidth);
+  current_resolution.set_height(info.maxHeight);
+  if (google::protobuf::util::MessageDifferencer::Equivalent(current_resolution, resolution)) {
+    return is::make_status(StatusCode::OK);
+  }
   // // Changing the size of the image or the pixel encoding
   // // format requires the camera to be stopped and restarted.
-  // auto function = [&](Resolution const& res) -> Status {
-  //   auto width = res.width();
-  //   auto height = res.height();
-  //   auto equal_div = width / this->step_h == height / this->step_v;
-
-  //   if (!(width % this->step_h == 0 && height % this->step_v == 0 && equal_div)) {
-  //     auto why = fmt::format("{}x{} isn't a valid resolution. Choose betewen:{}", width, height,
-  //     this->resolution_info); return internal_error(StatusCode::OUT_OF_RANGE, why);
-  //   }
-  //   // is_assert_ok(set_op_bool(node_map(), "IspEnable", true));  // just to ensure
-  //   auto binning = this->sensor_width / width;
-  //   is_assert_ok(set_op_int(node_map(), "OffsetX", 0));
-  //   is_assert_ok(set_op_int(node_map(), "OffsetY", 0));
-  //   is_assert_ok(set_op_int(node_map(), "BinningHorizontal", binning));
-  //   is_assert_ok(set_op_int(node_map(), "BinningVertical", binning));
-  //   is_assert_ok(set_op_int(node_map(), "Width", width));
-  //   is_assert_ok(set_op_int(node_map(), "Height", height));
-  //   return is::make_status(StatusCode::OK);
-  // };
-  // return control_capture(function, resolution);
-  return is::make_status(StatusCode::OK);
+  auto function = [&](Resolution const& res) -> Status {
+    // check if required resolution is available
+    auto pos = std::find_if(this->resolutions.begin(), this->resolutions.end(), [&](auto& res) {
+      return google::protobuf::util::MessageDifferencer::Equivalent(res.first, resolution);
+    });
+    if (pos == this->resolutions.end()) {
+      auto why = fmt::format("{}x{} isn't a valid resolution. Choose betewen:{}", resolution.width(),
+                             resolution.height(), this->resolution_info);
+      return internal_error(StatusCode::OUT_OF_RANGE, why);
+    }
+    // save current pixel format to restore after change mode
+    fc::GigEImageSettings settings;
+    is_assert_ok(get_image_settings(this->camera, &settings));
+    auto pixel_format = settings.pixelFormat;
+    auto mode = static_cast<fc::Mode>(pos->second);
+    error = this->camera.SetGigEImagingMode(mode);
+    if (error != fc::PGRERROR_OK) {
+      auto why = fmt::format("[SetResolution] {}", error.GetDescription());
+      return internal_error(StatusCode::INTERNAL_ERROR, why);
+    }
+    // restore pixel format
+    is_assert_ok(get_image_settings(this->camera, &settings));
+    settings.pixelFormat = pixel_format;
+    is_assert_ok(set_image_settings(this->camera, settings));
+    return is::make_status(StatusCode::OK);
+  };
+  return control_capture(function, resolution);
 }
 
 Status FlyCapture2Driver::get_resolution(Resolution* resolution) {
-  // int64_t width = 0, height = 0;
-  // is_assert_ok(get_op_int(node_map(), "Width", &width));
-  // is_assert_ok(get_op_int(node_map(), "Height", &height));
-  // resolution->set_width(width);
-  // resolution->set_height(height);
+  fc::GigEImageSettingsInfo info;
+  auto error = this->camera.GetGigEImageSettingsInfo(&info);
+  if (error != fc::PGRERROR_OK)
+    return internal_error(StatusCode::INTERNAL_ERROR, "Unable to read image settings info");
+  resolution->set_width(info.maxWidth);
+  resolution->set_height(info.maxHeight);
   return is::make_status(StatusCode::OK);
 }
 
@@ -574,39 +623,25 @@ Status FlyCapture2Driver::get_iris(CameraSetting*) {
 }
 
 Status FlyCapture2Driver::set_packet_delay(int const& packet_delay) {
-  // auto function = [&](int const& pd) -> Status {
-  //   is_assert_ok(set_op_int(node_map(), "GevSCPD", pd));
-  //   return is::make_status(StatusCode::OK);
-  // };
-  // return control_capture(function, packet_delay);
-  return is::make_status(StatusCode::OK);
+  auto function = [&](int const& pd) -> Status {
+    return set_gige_property(this->camera, fc::PACKET_DELAY, packet_delay);
+  };
+  return control_capture(function, packet_delay);
 }
 
 Status FlyCapture2Driver::set_packet_size(int const& packet_size) {
-  // auto function = [&](int const& ps) -> Status {
-  //   is_assert_ok(set_op_int(node_map(), "GevSCPSPacketSize", ps));
-  //   return is::make_status(StatusCode::OK);
-  // };
-  // return control_capture(function, packet_size);
-  return is::make_status(StatusCode::OK);
+  auto function = [&](int const& ps) -> Status {
+    return set_gige_property(this->camera, fc::PACKET_SIZE, packet_size);
+  };
+  return control_capture(function, packet_size);
 }
 
-Status FlyCapture2Driver::reverse_x(bool enable) {
-  // auto function = [&](bool e) -> Status {
-  //   is_assert_ok(set_op_bool(node_map(), "ReverseX", e));
-  //   return is::make_status(StatusCode::OK);
-  // };
-  // return control_capture(function, enable);
-  return is::make_status(StatusCode::OK);
+Status FlyCapture2Driver::reverse_x(bool) {
+  return internal_error(StatusCode::UNIMPLEMENTED, "\'Reverse X\' property not implemented for this camera.");
 }
 
-Status FlyCapture2Driver::reverse_y(bool enable) {
-  // auto function = [&](bool e) -> Status {
-  //   is_assert_ok(set_op_bool(node_map(), "ReverseY", e));
-  //   return is::make_status(StatusCode::OK);
-  // };
-  // return control_capture(function, enable);
-  return is::make_status(StatusCode::OK);
+Status FlyCapture2Driver::reverse_y(bool) {
+  return internal_error(StatusCode::UNIMPLEMENTED, "\'Reverse Y\' property not implemented for this camera.");
 }
 
 std::vector<int> FlyCapture2Driver::get_compression_parm() {

@@ -1,18 +1,19 @@
-#include "drivers/spinnaker/driver.hpp"
 #include "drivers/flycapture2/driver.hpp"
+#include "drivers/spinnaker/driver.hpp"
 #include "gateway/camera-gateway.hpp"
 
 #include <fstream>
 #include <is/msgs/validate.hpp>
-#include "options.pb.h"
+#include "boost/variant.hpp"
 #include "google/protobuf/util/json_util.h"
+#include "options.pb.h"
 
 #include <opencv2/core.hpp>
 
 using namespace is::camera;
 
-Options load_options(int argc, char** argv) {
-  Options options;
+CameraGatewayOptions load_options(int argc, char** argv) {
+  CameraGatewayOptions options;
   std::string filename = argc > 1 ? std::string(argv[1]) : "options.json";
   is::info("Loading options from {}", filename);
   std::ifstream in(filename);
@@ -28,33 +29,44 @@ Options load_options(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   auto op = load_options(argc, argv);
-  
+
   cv::setNumThreads(op.parallelism());
-  auto cam_infos = SpinnakerDriver::find_cameras();
-  for (auto& info : cam_infos) {
-    is::info("{}", info);
+  auto cdriver = op.camera_driver();
+  std::vector<std::pair<CameraDrivers, CameraInfo>> cam_infos;
+  if (op.camera_driver() == CameraDrivers::NOT_SPECIFIED || op.camera_driver() == CameraDrivers::FLYCAPTURE) {
+    auto infos = FlyCapture2Driver::find_cameras();
+    std::transform(infos.begin(), infos.end(), std::back_inserter(cam_infos),
+                   [](auto& info) { return std::make_pair(CameraDrivers::FLYCAPTURE, info); });
   }
-  cam_infos = FlyCapture2Driver::find_cameras();
-  for (auto& info : cam_infos) {
-    is::info("{}", info);
+  if (op.camera_driver() == CameraDrivers::NOT_SPECIFIED || op.camera_driver() == CameraDrivers::SPINNAKER) {
+    auto infos = SpinnakerDriver::find_cameras();
+    std::transform(infos.begin(), infos.end(), std::back_inserter(cam_infos),
+                   [](auto& info) { return std::make_pair(CameraDrivers::SPINNAKER, info); });
   }
 
-  // auto cam_info = std::find_if(cam_infos.begin(), cam_infos.end(),
-  //                              [&](auto& c) { return c.ethernet().ip_address() == op.camera_ip(); });
-  // if (cam_info == cam_infos.end()) {
-  //   is::critical("Camera with IP {} not found.", op.camera_ip());
-  // }
+  for (auto& info : cam_infos) {
+    is::info("{} -> {}", CameraDrivers_Name(info.first), info.second);
+  }
 
-  // is::info("Connecting to cammera {}", op.camera_ip());
-  // auto driver = std::make_unique<SpinnakerDriver>();
-  // driver->connect(*cam_info);
-  // driver->set_packet_delay(op.packet_delay());
-  // driver->set_packet_size(op.packet_size());
-  // driver->reverse_x(op.reverse_x());
-  // driver->reverse_y(op.reverse_y());
+  auto pos = std::find_if(cam_infos.begin(), cam_infos.end(),
+                          [&](auto& c) { return c.second.ethernet().ip_address() == op.camera_ip(); });
+  if (pos == cam_infos.end()) {
+    is::critical("Camera with IP {} not found.", op.camera_ip());
+  }
 
-  // CameraGateway gateway(std::move(driver));
-  // gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port(), op.initial_config());
+  is::info("Connecting to cammera {}", op.camera_ip());
+  std::unique_ptr<CameraDriver> driver;
+  if (pos->first == CameraDrivers::FLYCAPTURE)
+    driver = std::make_unique<FlyCapture2Driver>();
+  if (pos->first == CameraDrivers::SPINNAKER)
+    driver = std::make_unique<SpinnakerDriver>();
+  driver->connect(pos->second);
+  driver->set_packet_delay(op.packet_delay());
+  driver->set_packet_size(op.packet_size());
+  driver->reverse_x(op.reverse_x());
+  driver->reverse_y(op.reverse_y());
+  CameraGateway gateway(driver.get());
+  gateway.run(op.broker_uri(), op.camera_id(), op.zipkin_host(), op.zipkin_port(), op.initial_config());
 
   return 0;
 }

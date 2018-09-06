@@ -22,7 +22,7 @@ using namespace is::common;
 using namespace is::vision;
 
 struct CameraDriver {
-  virtual ~CameraDriver() {}
+  virtual ~CameraDriver() = default;
   static std::vector<CameraInfo> find_cameras();
 
   // // Image Settings
@@ -71,8 +71,13 @@ struct CameraDriver {
   virtual Status get_zoom(CameraSetting* zoom) = 0;
   virtual Status get_iris(CameraSetting* iris) = 0;
 
+  virtual Status set_packet_delay(int const& packet_delay) = 0;
+  virtual Status set_packet_size(int const& packet_size) = 0;
+  virtual Status reverse_x(bool enable) = 0;
+  virtual Status reverse_y(bool enable) = 0;
   virtual pb::Timestamp last_timestamp() = 0;
   virtual Image grab_image() = 0;
+  virtual void connect(CameraInfo const& cam_info) = 0;
   virtual void start_capture() = 0;
   virtual void stop_capture() = 0;
 };  // CameraDriver

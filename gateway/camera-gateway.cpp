@@ -11,7 +11,7 @@ using namespace std::chrono;
 using namespace zipkin;
 using namespace opentracing;
 
-CameraGateway::CameraGateway(std::unique_ptr<CameraDriver> impl) : driver(std::move(impl)) {}
+CameraGateway::CameraGateway(CameraDriver* impl) : driver(impl) {}
 
 Status CameraGateway::set_configuration(CameraConfig const& config) {
   // TODO: receovery previous context

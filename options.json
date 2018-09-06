@@ -1,8 +1,8 @@
 {
-  "broker_uri": "amqp://10.10.2.15:30000",
-  "zipkin_host": "10.10.2.15",
-  "zipkin_port": 30200,
-  "camera_ip": "10.10.0.100",
+  "broker_uri": "amqp://localhost",
+  "zipkin_host": "localhost",
+  "zipkin_port": 9411,
+  "camera_ip": "192.168.1.219",
   "camera_id": 0,
   "packet_delay": 6000,
   "packet_size": 1400,

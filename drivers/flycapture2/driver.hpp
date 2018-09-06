@@ -78,19 +78,20 @@ class FlyCapture2Driver : public CameraDriver {
   Status set_iris(CameraSetting const& iris) override;
   Status get_iris(CameraSetting* iris) override;
 
-  Status set_packet_delay(int const& packet_delay);
-  Status set_packet_size(int const& packet_size);
-  Status reverse_x(bool enable);
-  Status reverse_y(bool enable);
+  Status set_packet_delay(int const& packet_delay) override;
+  Status set_packet_size(int const& packet_size) override;
+  Status reverse_x(bool enable) override;
+  Status reverse_y(bool enable) override;
 
  private:
-  struct camera {};
-  struct gateway {};
-  typedef bimap<tagged<is::camera::ColorSpaces, gateway>, tagged<fc::PixelFormat, camera>> ColorSpaceBimap;
+  struct Camera {};
+  struct Gateway {};
+  typedef bimap<tagged<is::camera::ColorSpaces, Gateway>, tagged<fc::PixelFormat, Camera>> ColorSpaceBimap;
 
   fc::PGRGuid* uid;
   fc::GigECamera camera;
   int sensor_width, sensor_height, max_binning_h, max_binning_v, step_h, step_v;
+  std::vector<std::pair<Resolution, fc::Mode>> resolutions;
   std::string resolution_info;
 
   bool is_capturing;
@@ -109,6 +110,15 @@ class FlyCapture2Driver : public CameraDriver {
       this->start_capture();
     return status;
   }
+
+  struct Defer {
+    std::function<void()> on_exit;
+    Defer(std::function<void()>&& f) noexcept : on_exit(std::move(f)) {}
+    Defer(Defer const&) = delete;
+    Defer() = default;
+    Defer(Defer&& defer) : on_exit(std::move(defer.on_exit)) {}
+    ~Defer() { on_exit(); }
+  };
 
   std::vector<int> get_compression_parm();
 };

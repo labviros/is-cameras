@@ -8,6 +8,7 @@
 #include <tuple>
 #include "SpinGenApi/SpinnakerGenApi.h"
 #include "Spinnaker.h"
+#include "drivers/utils/utils.hpp"
 
 namespace is {
 namespace camera {
@@ -20,17 +21,6 @@ using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 }  // namespace spn
 
-template <typename T>
-struct OpRange {
-  T min;
-  T max;
-  T to_ratio(T const& value) { return (value - min) / (max - min); }
-  T to_value(T const& ratio) { return ratio * (max - min) + min; }
-};  
-
-Status internal_error(StatusCode code, std::string const& why);
-Status writeability_error(std::string const& name);
-Status readability_error(std::string const& name);
 bool is_writable(spn::INode* node);
 bool is_readable(spn::INode* node);
 

@@ -3,7 +3,13 @@ syntax = "proto3";
 import "is/msgs/validate.proto";
 import "is/msgs/camera.proto";
 
-message Options {
+enum CameraDrivers {
+  NOT_SPECIFIED = 0;
+  FLYCAPTURE = 1; 
+  SPINNAKER = 2;
+}
+
+message CameraGatewayOptions {
   string broker_uri = 1;
   string zipkin_host = 2;
   uint32 zipkin_port = 3;
@@ -15,4 +21,5 @@ message Options {
   bool reverse_y = 9;
   int32 parallelism = 10;
   is.vision.CameraConfig initial_config = 11;
+  CameraDrivers camera_driver = 12;
 }

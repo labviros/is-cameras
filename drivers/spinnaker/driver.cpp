@@ -26,7 +26,6 @@ std::vector<CameraInfo> SpinnakerDriver::find_cameras() {
   std::vector<CameraInfo> cam_infos;
   auto cam_list = cam_system->GetCameras();
   auto n_cameras = cam_list.GetSize();
-  is::info("{} cameras found", n_cameras);
   for (auto i = 0; i < n_cameras; ++i) {
     CameraInfo info;
     auto cam = cam_list.GetByIndex(i);
