@@ -14,7 +14,6 @@ using namespace Spinnaker;
 using namespace Spinnaker::GenApi;
 using namespace Spinnaker::GenICam;
 }  // namespace spn
-using namespace is::wire;
 
 SpinnakerDriver::SpinnakerDriver() : is_capturing(false) {
   this->color_space_map.insert(ColorSpaceBimap::value_type(ColorSpaces::GRAY, "Mono8"));

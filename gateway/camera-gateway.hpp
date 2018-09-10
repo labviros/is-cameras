@@ -4,7 +4,7 @@
 #include <google/protobuf/empty.pb.h>
 #include <is/msgs/camera.pb.h>
 #include <is/msgs/common.pb.h>
-#include <is/msgs/wire.pb.h>
+#include <is/wire/core/status.hpp>
 #include <chrono>
 #include <is/msgs/utils.hpp>
 #include <is/wire/core.hpp>

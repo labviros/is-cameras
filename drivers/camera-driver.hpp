@@ -4,7 +4,7 @@
 #include <google/protobuf/util/time_util.h>
 #include <is/msgs/camera.pb.h>
 #include <is/msgs/common.pb.h>
-#include <is/msgs/wire.pb.h>
+#include <is/wire/core/status.hpp>
 #include <is/msgs/image.pb.h>
 #include "../msgs/camera-info.pb.h"
 
@@ -17,13 +17,11 @@ using namespace google::protobuf;
 
 namespace camera {
 
-using namespace is::wire;
 using namespace is::common;
 using namespace is::vision;
 
 struct CameraDriver {
   virtual ~CameraDriver() = default;
-  static std::vector<CameraInfo> find_cameras();
 
   // // Image Settings
   virtual Status set_resolution(Resolution const&) = 0;

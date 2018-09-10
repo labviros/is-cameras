@@ -10,7 +10,6 @@ namespace is {
 namespace camera {
 
 namespace fc = FlyCapture2;
-using namespace is::wire;
 
 FlyCapture2Driver::FlyCapture2Driver() : uid(new fc::PGRGuid()), is_capturing(false) {
   this->color_space_map.insert(ColorSpaceBimap::value_type(ColorSpaces::GRAY, fc::PIXEL_FORMAT_MONO8));

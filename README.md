@@ -1,3 +1,3 @@
 is-cameras
 ===
-This repository contains the base implementation to build drivers and gateways for cameras. All messages used are defined on [is-msgs](https://github.com/labviros/is-msgs/tree/modern-cmake) repository. Gateway for [Point Grey](https://www.ptgrey.com/) [BlackFly S](https://eu.ptgrey.com/blackfly-s-gige-vision-cameras) camera is already implemented.
+This repository contains the base implementation to build drivers and gateways for cameras. All messages used are defined on [is-msgs](https://github.com/labviros/is-msgs/tree/modern-cmake) repository. Gateway for [Point Grey](https://www.ptgrey.com/) cameras using either [FlyCapture2](https://www.ptgrey.com/flycapture-sdk) or [Spinnaker](https://www.ptgrey.com/spinnaker-sdk) are already implemented. Tests were made with [BlackFly](https://www.ptgrey.com/blackfly-gige-poe-cameras) and [BlackFly S](https://eu.ptgrey.com/blackfly-s-gige-vision-cameras) models.

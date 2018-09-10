@@ -3,9 +3,6 @@
 namespace is {
 namespace camera {
 
-using namespace is::wire;
-using namespace is::common;
-
 Status internal_error(StatusCode code, std::string const& why) {
   is::warn(why);
   return is::make_status(code, why);

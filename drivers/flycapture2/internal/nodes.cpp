@@ -3,7 +3,6 @@
 namespace is {
 namespace camera {
 
-using namespace is::wire;
 using namespace is::common;
 
 Status set_gige_property(fc::GigECamera& camera, fc::GigEPropertyType type, int value) {

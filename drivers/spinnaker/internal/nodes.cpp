@@ -3,7 +3,6 @@
 namespace is {
 namespace camera {
 
-using namespace is::wire;
 using namespace is::common;
 namespace spn {
 using namespace Spinnaker;

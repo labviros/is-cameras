@@ -1,16 +1,12 @@
 #pragma once
 
-#include <is/msgs/common.pb.h>
-#include <is/msgs/wire.pb.h>
-#include <is/msgs/utils.hpp>
+#include <is/wire/core/status.hpp>
 #include <is/wire/core/logger.hpp>
 #include <string>
 
 namespace is {
 namespace camera {
 
-using namespace is::wire;
-using namespace is::common;
 
 template <typename T>
 struct OpRange {

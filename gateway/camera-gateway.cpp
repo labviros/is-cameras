@@ -4,7 +4,6 @@
 namespace is {
 namespace camera {
 
-using namespace is::wire;
 using namespace is::common;
 using namespace is::vision;
 using namespace std::chrono;

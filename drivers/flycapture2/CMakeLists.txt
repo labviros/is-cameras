@@ -1,5 +1,6 @@
 include(GNUInstallDirs)
 
+find_package(is-msgs REQUIRED)
 find_package(is-wire REQUIRED is-wire-core)
 find_package(opencv)
 

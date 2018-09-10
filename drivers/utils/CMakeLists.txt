@@ -35,7 +35,6 @@ target_link_libraries(
   ${target}
  PUBLIC
   is-wire::is-wire
-  is-msgs::is-msgs
 )
 
 # header dependencies

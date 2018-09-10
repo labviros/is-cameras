@@ -16,14 +16,9 @@ CameraGatewayOptions load_options(int argc, char** argv) {
   CameraGatewayOptions options;
   std::string filename = argc > 1 ? std::string(argv[1]) : "options.json";
   is::info("Loading options from {}", filename);
-  std::ifstream in(filename);
-  std::string s((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  if (!google::protobuf::util::JsonStringToMessage(s, &options).ok())
-    is::critical("Failed to load options from {}. Exiting...", filename);
+  is::load(filename, &options);
   is::info("Options loaded: {}", options);
-  auto validate_status = is::validate_message(options);
-  if (validate_status.code() != is::wire::StatusCode::OK)
-    is::critical("{}", validate_status);
+  is::validate_message(options);
   return options;
 }
 

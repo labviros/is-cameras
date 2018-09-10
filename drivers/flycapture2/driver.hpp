@@ -22,7 +22,6 @@ namespace is {
 namespace camera {
 
 namespace fc = FlyCapture2;
-using namespace is::wire;
 using namespace boost::bimaps;
 
 class FlyCapture2Driver : public CameraDriver {

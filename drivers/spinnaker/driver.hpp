@@ -22,7 +22,6 @@
 namespace is {
 namespace camera {
 
-using namespace is::wire;
 using namespace boost::bimaps;
 
 class SpinnakerDriver : public CameraDriver {
