@@ -53,8 +53,9 @@ target_link_libraries(
   opencv::opencv
   options
   is-cameras::is-cameras-gateway
-  is-cameras::is-cameras-drivers-spinnaker
+  # flycapture2 and spinnaker drivers must be placed in this order
   is-cameras::is-cameras-drivers-flycapture2
+  is-cameras::is-cameras-drivers-spinnaker
 )
 
 set_property(TARGET service.bin PROPERTY CXX_STANDARD 14)
