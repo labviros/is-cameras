@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
     is::critical("Camera with IP {} not found.", op.camera_ip());
   }
 
-  is::info("Connecting to cammera {}", op.camera_ip());
+  is::info("Connecting to camera {}", op.camera_ip());
   std::unique_ptr<CameraDriver> driver;
   if (pos->first == CameraDrivers::FLYCAPTURE)
     driver = std::make_unique<FlyCapture2Driver>();

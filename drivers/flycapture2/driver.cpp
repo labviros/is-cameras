@@ -283,14 +283,14 @@ Status FlyCapture2Driver::get_color_space(ColorSpace* color_space) {
 }
 
 Status FlyCapture2Driver::set_resolution(Resolution const& resolution) {
-  fc::GigEImageSettingsInfo info;
-  auto error = this->camera.GetGigEImageSettingsInfo(&info);
+  fc::GigEImageSettings settings;
+  auto error = this->camera.GetGigEImageSettings(&settings);
   if (error != fc::PGRERROR_OK)
     return internal_error(StatusCode::INTERNAL_ERROR, "Unable to read current image settings info");
 
   Resolution current_resolution;
-  current_resolution.set_width(info.maxWidth);
-  current_resolution.set_height(info.maxHeight);
+  current_resolution.set_width(settings.width);
+  current_resolution.set_height(settings.height);
   if (google::protobuf::util::MessageDifferencer::Equivalent(current_resolution, resolution)) {
     return is::make_status(StatusCode::OK);
   }
@@ -319,6 +319,8 @@ Status FlyCapture2Driver::set_resolution(Resolution const& resolution) {
     // restore pixel format
     is_assert_ok(get_image_settings(this->camera, &settings));
     settings.pixelFormat = pixel_format;
+    settings.width = resolution.width();
+    settings.height = resolution.height();
     is_assert_ok(set_image_settings(this->camera, settings));
     return is::make_status(StatusCode::OK);
   };
@@ -397,29 +399,26 @@ Status FlyCapture2Driver::get_delay(pb::FloatValue* delay) {
 }
 
 Status FlyCapture2Driver::set_shutter(CameraSetting const& shutter) {
-  // if (shutter.automatic())
-  //   is_assert_ok(set_op_enum(node_map(), "ExposureAuto", "Continuous"));
-  // else {
-  //   is_assert_ok(set_op_enum(node_map(), "ExposureAuto", "Off"));
-  //   float frame_rate = 0.0f;
-  //   is_assert_ok(get_op_float(node_map(), "AcquisitionFrameRate", &frame_rate));
-  //   auto period_us = 1e6 / frame_rate;
-  //   is_assert_ok(set_op_float(node_map(), "ExposureTime", shutter.ratio() * period_us));
-  // }
+  if (shutter.automatic())
+    is_assert_ok(set_property_auto(this->camera, fc::SHUTTER));
+  else {
+    float frame_rate = 0.0f;
+    is_assert_ok(get_property_abs(this->camera, fc::FRAME_RATE, &frame_rate));
+    auto period_ms = 1000.0 / frame_rate;
+    is_assert_ok(set_property_abs(this->camera, fc::SHUTTER, period_ms * shutter.ratio()));
+  }
   return is::make_status(StatusCode::OK);
 }
 
 Status FlyCapture2Driver::get_shutter(CameraSetting* shutter) {
-  // std::string automatic_str;
-  // is_assert_ok(get_op_enum(node_map(), "ExposureAuto", &automatic_str));
-  // auto automatic = automatic_str != "Off";
-  // float frame_rate = 0.0f;
-  // is_assert_ok(get_op_float(node_map(), "AcquisitionFrameRate", &frame_rate));
-  // auto period_us = 1e6 / frame_rate;
-  // float value = 0.0f;
-  // is_assert_ok(get_op_float(node_map(), "ExposureTime", &value));
-  // shutter->set_automatic(automatic);
-  // shutter->set_ratio(std::min(1.0, value / period_us));
+  bool automatic = false;
+  is_assert_ok(get_property_auto(this->camera, fc::SHUTTER, &automatic));
+  float frame_rate = 0.0f;
+  is_assert_ok(get_property_abs(this->camera, fc::FRAME_RATE, &frame_rate));
+  float period_ms = 0.0f;
+  is_assert_ok(get_property_abs(this->camera, fc::SHUTTER, &period_ms));
+  shutter->set_automatic(automatic);
+  shutter->set_ratio(std::min(1.0, (period_ms / 1000.0) * frame_rate));
   return is::make_status(StatusCode::OK);
 }
 

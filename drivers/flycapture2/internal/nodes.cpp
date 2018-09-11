@@ -19,6 +19,24 @@ Status set_gige_property(fc::GigECamera& camera, fc::GigEPropertyType type, int 
   return is::make_status(StatusCode::OK);
 }
 
+Status set_property_auto(fc::GigECamera& camera, fc::PropertyType type) {
+  fc::Property property(type);
+  property.onOff = true;
+  property.autoManualMode = true;
+
+  auto error = camera.SetProperty(&property);
+  fc_assert_ok(error, type);
+  return is::make_status(StatusCode::OK);
+}
+
+Status get_property_auto(fc::GigECamera& camera, fc::PropertyType type, bool* is_auto) {
+  fc::Property property(type);
+  auto error = camera.GetProperty(&property);
+  fc_assert_ok(error, type);
+  *is_auto = property.onOff && property.autoManualMode;
+  return is::make_status(StatusCode::OK);
+}
+
 Status set_property_abs(fc::GigECamera& camera, fc::PropertyType type, float value, bool is_ratio) {
   fc::PropertyInfo info(type);
   auto error = camera.GetPropertyInfo(&info);

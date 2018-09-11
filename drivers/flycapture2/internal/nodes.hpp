@@ -23,6 +23,8 @@ using namespace is::common;
 namespace fc = FlyCapture2;
 
 Status set_gige_property(fc::GigECamera& camera, fc::GigEPropertyType type, int value);
+Status set_property_auto(fc::GigECamera& camera, fc::PropertyType type);
+Status get_property_auto(fc::GigECamera& camera, fc::PropertyType type, bool* is_auto);
 Status set_property_abs(fc::GigECamera& camera, fc::PropertyType type, float value, bool is_ratio = false);
 Status get_property_abs(fc::GigECamera& camera, fc::PropertyType type, float* value, bool is_ratio = false);
 Status set_image_settings(fc::GigECamera& camera, fc::GigEImageSettings const& settings);
