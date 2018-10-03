@@ -173,7 +173,6 @@ Image FlyCapture2Driver::grab_image() {
   auto error = camera.RetrieveBuffer(&image);
   if (error != fc::PGRERROR_OK) {
     is::warn("[Grab Image] {}", error.GetDescription());
-    return Image();
   }
   this->timestamp = is::to_timestamp(std::chrono::system_clock::now());
   auto pixel_format = image.GetPixelFormat();

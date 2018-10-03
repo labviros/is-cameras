@@ -41,7 +41,7 @@ function docker::rebuild_image {
 
 image_dev='is-cameras/dev'
 docker_user="viros"
-remote_tag="is-cameras:1.4"
+remote_tag="is-cameras:1.5"
 
 if ! docker::has_image ${image_dev}; then
     docker::build_local ${image_dev} Dockerfile.dev
