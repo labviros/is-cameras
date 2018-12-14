@@ -1,10 +1,10 @@
 #include "driver.hpp"
+#include <google/protobuf/util/message_differencer.h>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include "internal/info.hpp"
 #include "internal/nodes.hpp"
-#include <google/protobuf/util/message_differencer.h>
 
 namespace is {
 namespace camera {
@@ -62,9 +62,7 @@ void SpinnakerDriver::connect(CameraInfo const& cam_info) {
     this->cam_list = this->cam_system->GetCameras();
     this->cam = this->cam_list.GetBySerial(cam_info.serial_number());
     this->cam->Init();
-  } catch (Spinnaker::Exception& e) { 
-    is::critical("[{}] {}", "Camera Initialize", e.what()); 
-  }
+  } catch (Spinnaker::Exception& e) { is::critical("[{}] {}", "Camera Initialize", e.what()); }
 
   // Initial configuration
   this->set_packet_size(1400);
@@ -84,7 +82,8 @@ void SpinnakerDriver::connect(CameraInfo const& cam_info) {
   ColorSpace color_space;
   color_space.set_value(ColorSpaces::GRAY);
   this->set_color_space(color_space);
-  set_op_bool(node_map(), "IspEnable", true);  // necessery to pixel binning and sharpening works, just can set when colorspace is GRAY
+  set_op_bool(node_map(), "IspEnable",
+              true);  // necessery to pixel binning and sharpening works, just can set when colorspace is GRAY
   // fix-me: sometimes after enable ISP, shapening optinios aren't available to write.
   set_op_bool(node_map(), "SharpeningEnable", true);
   set_op_bool(node_map(), "SharpeningAuto", true);
@@ -121,18 +120,14 @@ void SpinnakerDriver::start_capture() {
   try {
     this->cam->BeginAcquisition();
     this->is_capturing = true;
-  } catch (Spinnaker::Exception& e) {
-    is::warn("[{}] {}", "Start Capture", e.what());
-  }
+  } catch (Spinnaker::Exception& e) { is::warn("[{}] {}", "Start Capture", e.what()); }
 }
 
 void SpinnakerDriver::stop_capture() {
   try {
     this->cam->EndAcquisition();
     this->is_capturing = false;
-  } catch (Spinnaker::Exception& e) { 
-    is::warn("[{}] {}", "Stop Capture", e.what()); 
-  }
+  } catch (Spinnaker::Exception& e) { is::warn("[{}] {}", "Stop Capture", e.what()); }
 }
 
 Image SpinnakerDriver::grab_image() {
@@ -212,12 +207,13 @@ Status SpinnakerDriver::get_sampling_rate(pb::FloatValue* rate) {
 Status SpinnakerDriver::set_color_space(ColorSpace const& color_space) {
   ColorSpace current_color_space;
   auto status = this->get_color_space(&current_color_space);
-  if (status.code() != StatusCode::OK) {
-    auto why = fmt::format("Failed to read color space before set it.");
-    return internal_error(StatusCode::INTERNAL_ERROR, why);
-  }
-  if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
-    return is::make_status(StatusCode::OK);
+
+  if (status.code() == StatusCode::OK) {
+    if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
+      return is::make_status(StatusCode::OK);
+    }
+  } else {
+    is::warn("Failed to read color space before set it.");
   }
 
   auto function = [&](ColorSpace const& cs) -> Status {

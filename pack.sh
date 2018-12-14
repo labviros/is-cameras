@@ -1,21 +1,12 @@
 #!/bin/bash
 set -e
 
-function docker::has_image {
-    image_count=`docker images --filter="reference=$1" -q | wc -l`
-    if [[ ${image_count} == 0 ]]; then
-        echo "!! Image '$1' not found"
-        return 1
-    fi
-    return 0
-}
-
 function docker::build_local {
     tag=$1
     dockerfile=$2
     echo "!! Building '${tag}'"
     sleep 2
-    docker build . -f ${dockerfile} -t ${tag} --no-cache --network=host
+    docker build . -f ${dockerfile} -t ${tag} --network=host
 }
 
 function docker::push_image {
@@ -30,26 +21,9 @@ function docker::push_image {
     fi
 }
 
-function docker::rebuild_image {
-    read -r -p "?? Image '$1' already existis, do you want to rebuild it? [y/N] " response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
-        echo "!! Ruilding '$1'"
-        return 0
-    fi
-    return 1
-}
-
 image_dev='is-cameras/dev'
 docker_user="viros"
-remote_tag="is-cameras:1.5"
-
-if ! docker::has_image ${image_dev}; then
-    docker::build_local ${image_dev} Dockerfile.dev
-elif docker::rebuild_image ${image_dev}; then
-    docker::build_local ${image_dev} Dockerfile.dev
-else
-    echo "!! Alreary have image '$image_dev'"
-fi
+remote_tag="is-cameras:1.5.1"
 
 docker::build_local is-cameras Dockerfile
 docker::push_image is-cameras ${remote_tag}

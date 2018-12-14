@@ -3,7 +3,7 @@ from conans import ConanFile, CMake, tools
 
 class IsCamerasConan(ConanFile):
     name = "is-cameras"
-    version = "1.0.0"
+    version = "1.5.1"
     license = "MIT"
     url = ""
     description = ""
@@ -13,16 +13,16 @@ class IsCamerasConan(ConanFile):
         "fPIC": [True, False],
         "build_tests": [True, False],
     }
-    default_options = "shared=False", "fPIC=True", "build_tests=False"
+    default_options = { "shared": False, "fPIC": True, "build_tests": False }
     generators = "cmake", "cmake_find_package", "cmake_paths"
     requires = (
-        "opencv/3.3.1@is/stable",
+        "opencv/3.4.2@is/stable",
         "is-wire/1.1.4@is/stable",
         "is-msgs/1.1.8@is/stable",
         "zipkin-cpp-opentracing/0.3.1@is/stable",
         "spinnaker/1.10.0.31@is/stable",
         "flycapture2/2.12.3.31@is/stable",
-        "boost/1.67.0@conan/stable",
+        "boost/1.66.0@conan/stable",
     )
     exports_sources = "*"
 
@@ -35,6 +35,7 @@ class IsCamerasConan(ConanFile):
         self.options["is-wire"].shared = True
         self.options["opencv"].shared = True
         self.options["opencv"].with_qt = False
+        self.options["opencv"].with_zlib = False
 
     def build(self):
         cmake = CMake(self, generator='Ninja')

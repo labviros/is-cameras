@@ -1,8 +1,14 @@
-FROM is-cameras/dev
+FROM lasote/conangcc54 AS build 
 
-RUN conan search opencv/3.3.1@is/stable 
+ADD https://raw.githubusercontent.com/labviros/is-wire/v1.1.4/bootstrap.sh .
+RUN sudo chmod +x bootstrap.sh && sudo ./bootstrap.sh
+
+ADD conanfile.py .
+RUN sudo conan install . -s compiler.libcxx=libstdc++11 --build=missing
+
 ADD . /project
 WORKDIR /project
+
 RUN sudo bash build.sh
 RUN mkdir -v -p /tmp/deploy                                      \
  && libs=`find build/ -type f -name '*.bin' -exec ldd {} \;      \
@@ -19,4 +25,4 @@ RUN mkdir -v -p /tmp/deploy                                      \
 
 # Deployment container
 FROM ubuntu:16.04
-COPY --from=0 /tmp/deploy /
+COPY --from=build /tmp/deploy /

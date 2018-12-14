@@ -244,16 +244,20 @@ Status FlyCapture2Driver::get_sampling_rate(pb::FloatValue* rate) {
 
 Status FlyCapture2Driver::set_color_space(ColorSpace const& color_space) {
   fc::GigEImageSettings settings;
-  is_assert_ok(get_image_settings(this->camera, &settings));
+  auto status = get_image_settings(this->camera, &settings);
 
-  auto pos = this->color_space_map.by<Camera>().find(settings.pixelFormat);
-  if (pos != this->color_space_map.by<Camera>().end()) {
-    auto cs_gw = pos->get<Gateway>();
-    ColorSpace current_color_space;
-    current_color_space.set_value(cs_gw);
-    if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
-      return is::make_status(StatusCode::OK);
+  if (status.code() == StatusCode::OK) {
+    auto pos = this->color_space_map.by<Camera>().find(settings.pixelFormat);
+    if (pos != this->color_space_map.by<Camera>().end()) {
+      auto cs_gw = pos->get<Gateway>();
+      ColorSpace current_color_space;
+      current_color_space.set_value(cs_gw);
+      if (google::protobuf::util::MessageDifferencer::Equivalent(current_color_space, color_space)) {
+        return is::make_status(StatusCode::OK);
+      }
     }
+  } else {
+    is::warn("Failed to read color space before set it.");
   }
 
   auto function = [&](ColorSpace const& cs) -> Status {
