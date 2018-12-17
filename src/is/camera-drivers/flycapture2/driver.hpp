@@ -8,9 +8,8 @@
 #include <is/wire/core/logger.hpp>
 #include <string>
 #include <vector>
-#include "../camera-driver.hpp"
-#include "SpinGenApi/SpinnakerGenApi.h"
-#include "Spinnaker.h"
+#include "is/camera-drivers/interface/camera-driver.hpp"
+#include "FlyCapture2.h"
 
 #define is_assert_ok(failable)                     \
   do {                                             \
@@ -22,11 +21,13 @@
 namespace is {
 namespace camera {
 
+namespace fc = FlyCapture2;
 using namespace boost::bimaps;
 
-class SpinnakerDriver : public CameraDriver {
+class FlyCapture2Driver : public CameraDriver {
  public:
-  SpinnakerDriver();
+  FlyCapture2Driver();
+  ~FlyCapture2Driver();
 
   static std::vector<CameraInfo> find_cameras();
   void connect(CameraInfo const& cam_info);
@@ -82,14 +83,14 @@ class SpinnakerDriver : public CameraDriver {
   Status reverse_y(bool enable) override;
 
  private:
-  struct camera {};
-  struct gateway {};
-  typedef bimap<tagged<is::camera::ColorSpaces, gateway>, tagged<std::string, camera>> ColorSpaceBimap;
+  struct Camera {};
+  struct Gateway {};
+  typedef bimap<tagged<is::camera::ColorSpaces, Gateway>, tagged<fc::PixelFormat, Camera>> ColorSpaceBimap;
 
-  Spinnaker::SystemPtr cam_system;
-  Spinnaker::CameraList cam_list;
-  Spinnaker::CameraPtr cam;
+  fc::PGRGuid* uid;
+  fc::GigECamera camera;
   int sensor_width, sensor_height, max_binning_h, max_binning_v, step_h, step_v;
+  std::vector<std::pair<Resolution, fc::Mode>> resolutions;
   std::string resolution_info;
 
   bool is_capturing;
@@ -109,7 +110,15 @@ class SpinnakerDriver : public CameraDriver {
     return status;
   }
 
-  Spinnaker::GenApi::INodeMap& node_map() const;
+  struct Defer {
+    std::function<void()> on_exit;
+    Defer(std::function<void()>&& f) noexcept : on_exit(std::move(f)) {}
+    Defer(Defer const&) = delete;
+    Defer() = default;
+    Defer(Defer&& defer) : on_exit(std::move(defer.on_exit)) {}
+    ~Defer() { on_exit(); }
+  };
+
   std::vector<int> get_compression_parm();
 };
 

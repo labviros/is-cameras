@@ -1,50 +1,35 @@
 include(GNUInstallDirs)
 
-find_package(is-wire REQUIRED is-wire-core)
+set(namespace "is-camera-drivers") 
+set(target "${namespace}-interface") 
 
-set(author "is")
-set(module "cameras")
-set(module_levels "utils")
-
-set(interfaces)
-list(APPEND interfaces
-"utils.hpp"
-)
-
-set(sources)
-list(APPEND sources 
-  "utils.cpp"
-  ${interfaces}
-)
+find_package(is-wire REQUIRED)
+find_package(is-msgs REQUIRED)
 
 #######
 ####
 #######
 
-string(REPLACE ";" "-" target "${author};${module};${module_levels}")
-string(REPLACE ";" "/" include_dir "${author};${module};${module_levels}")
-set(namespace "${author}-${module}") 
+list(APPEND interfaces
+  "camera-driver.hpp"
+)
 
-add_library(${target} ${sources})
+add_library(${target} INTERFACE)
 
-# compile options
-set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
-
-# link dependencies
-target_link_libraries(
-  ${target}
- PUBLIC
+target_link_libraries(${target}
+ INTERFACE
   is-wire::is-wire
+  is-msgs::is-msgs
+  is-camera-drivers-interface::is-camera-drivers-interface-info
 )
 
 # header dependencies
 target_include_directories(
   ${target}
- PUBLIC
+ INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../..> # for headers when building
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
   $<INSTALL_INTERFACE:include/${include_dir}> # for clients in install mode
-  ${FLYCAPTURE_INCLUDE_DIRS}
 )
 
 set(export_targets      ${target}Targets)
@@ -71,9 +56,6 @@ install(
   NAMESPACE   ${export_namespace}
   DESTINATION ${export_destination}
 )
-
-# install export config
-install(FILES ${export_config_file} DESTINATION ${export_destination})
 
 # create library alias (less error prone to typos)
 set(target_alias ${export_namespace}${target})

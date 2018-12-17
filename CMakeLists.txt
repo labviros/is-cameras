@@ -1,61 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
+include(GNUInstallDirs)
 
-if (EXISTS ${CMAKE_BINARY_DIR}/conan_paths.cmake)
-  include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
+project(is-cameras CXX)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_subdirectory(msgs)
-add_subdirectory(drivers)
-add_subdirectory(gateway)
+include(${CMAKE_BINARY_DIR}/conan_paths.cmake)
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
+ 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-######
-#### Build Proto Options
-######
-
-find_package(Protobuf REQUIRED)
-find_package(is-msgs REQUIRED)
-get_target_property(Protobuf_IMPORT_DIRS is-msgs::is-msgs INTERFACE_INCLUDE_DIRECTORIES)
-
-PROTOBUF_GENERATE_CPP(src hdr options.proto)
-list(APPEND sources ${src} ${hdr})
-add_library(options ${sources})
-set_property(TARGET options PROPERTY CXX_STANDARD 11)
-
-# link dependencies
-target_link_libraries(
-  options
- PUBLIC
-  is-msgs::is-msgs
-  ${PROTOBUF_LIBRARIES} 
-)
-
-# header dependencies
-target_include_directories(
-  options
- PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> # for headers when building
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
- PUBLIC
-  ${PROTOBUF_INCLUDE_DIRS} 
-)
-
-######
-#### Build Camera Gateway
-######
-
-find_package(opencv)
-
-add_executable(service.bin service.cpp)
-
-target_link_libraries(
-  service.bin
- PRIVATE
-  opencv::opencv
-  options
-  is-cameras::is-cameras-gateway
-  # flycapture2 and spinnaker drivers must be placed in this order
-  is-cameras::is-cameras-drivers-flycapture2
-  is-cameras::is-cameras-drivers-spinnaker
-)
-
-set_property(TARGET service.bin PROPERTY CXX_STANDARD 14)
+add_subdirectory("./src/is/camera-drivers")
+add_subdirectory("./src/is/camera-gateway")

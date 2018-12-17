@@ -1,38 +1,27 @@
 include(GNUInstallDirs)
 
-if(NOT CMAKE_BUILD_TYPE)
-set(CMAKE_BUILD_TYPE Release)
-endif()
+set(namespace "is-camera-drivers-interface")
+set(target "${namespace}-info") 
 
 find_package(Protobuf REQUIRED)
 find_package(is-msgs REQUIRED)
-
-set(author "is")
-set(module "cameras")
-set(module_levels "msgs")
-
-list(APPEND protos
-  "camera-info.proto"
-)
 
 #######
 ####
 #######
 
-string(REPLACE ";" "-" target "${author};${module};${module_levels}")
-string(REPLACE ";" "/" include_dir "${author};${module};${module_levels}")
-set(namespace "${author}-${module}") 
+find_package(is-msgs REQUIRED)
+find_package(Protobuf REQUIRED)
 
-foreach(proto ${protos})
-  PROTOBUF_GENERATE_CPP(src hdr ${proto})
-  list(APPEND sources ${src} ${hdr})
-  list(APPEND interfaces ${hdr} ${proto})
-endforeach()
+get_target_property(Protobuf_IMPORT_DIRS is-msgs::is-msgs INTERFACE_INCLUDE_DIRECTORIES)
+set(PROTOBUF_GENERATE_CPP_APPEND_PATH OFF)
+PROTOBUF_GENERATE_CPP(camera_info_src camera_info_hdr camera-info.proto)
 
-add_library(${target} ${sources})
+add_library(${target} ${camera_info_src} ${camera_info_hdr})
 
 # compile options
 set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
+
 # link dependencies
 target_link_libraries(
   ${target}

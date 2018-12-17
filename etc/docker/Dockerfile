@@ -1,7 +1,4 @@
-FROM lasote/conangcc54 AS build 
-
-ADD https://raw.githubusercontent.com/labviros/is-wire/v1.1.4/bootstrap.sh .
-RUN sudo chmod +x bootstrap.sh && sudo ./bootstrap.sh
+FROM labviros/is-wire-base:1.1.4-gcc54 AS build 
 
 ADD conanfile.py .
 RUN sudo conan install . -s compiler.libcxx=libstdc++11 --build=missing
@@ -20,7 +17,7 @@ RUN mkdir -v -p /tmp/deploy                                      \
             cp --verbose --parents {}  /tmp/deploy \;;           \
     done                                                         \
  && cp --verbose `find build/ -type f -name '*.bin'` /tmp/deploy \
- && cp --verbose options.json /tmp/deploy                        \
+ && cp --verbose etc/conf/options.json /tmp/deploy               \
  && sudo rm -rf build/
 
 # Deployment container

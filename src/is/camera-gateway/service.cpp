@@ -1,12 +1,12 @@
-#include "drivers/flycapture2/driver.hpp"
-#include "drivers/spinnaker/driver.hpp"
-#include "gateway/camera-gateway.hpp"
+#include "is/camera-drivers/flycapture2/driver.hpp"
+#include "is/camera-drivers/spinnaker/driver.hpp"
+#include "is/camera-gateway/camera-gateway.hpp"
 
 #include <fstream>
 #include <is/msgs/validate.hpp>
 #include "boost/variant.hpp"
 #include "google/protobuf/util/json_util.h"
-#include "options.pb.h"
+#include "conf/options.pb.h"
 
 #include <opencv2/core.hpp>
 

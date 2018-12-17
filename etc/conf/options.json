@@ -27,5 +27,6 @@
         "compression": 0.8
       }
     }
-  }
+  },
+  "camera_driver": "NOT_SPECIFIED"
 }

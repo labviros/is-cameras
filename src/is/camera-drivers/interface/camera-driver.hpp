@@ -6,7 +6,7 @@
 #include <is/msgs/common.pb.h>
 #include <is/wire/core/status.hpp>
 #include <is/msgs/image.pb.h>
-#include "../msgs/camera-info.pb.h"
+#include "camera-info.pb.h"
 
 namespace is {
 

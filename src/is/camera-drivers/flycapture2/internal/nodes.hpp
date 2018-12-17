@@ -6,7 +6,7 @@
 #include <is/wire/core/logger.hpp>
 #include <string>
 #include "FlyCapture2.h"
-#include "drivers/utils/utils.hpp"
+#include "is/camera-drivers/utils/utils.hpp"
 
 #define fc_assert_ok(error, type)                                                         \
   do {                                                                                    \

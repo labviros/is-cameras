@@ -4,9 +4,10 @@ set -e
 function docker::build_local {
     tag=$1
     dockerfile=$2
+    folder=$3
     echo "!! Building '${tag}'"
     sleep 2
-    docker build . -f ${dockerfile} -t ${tag} --network=host
+    docker build ${folder} -f ${dockerfile} -t ${tag} --network=host
 }
 
 function docker::push_image {

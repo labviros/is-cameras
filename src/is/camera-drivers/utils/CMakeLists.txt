@@ -1,41 +1,33 @@
 include(GNUInstallDirs)
 
-find_package(is-wire REQUIRED is-wire-core)
-find_package(zipkin-cpp-opentracing)
-
-set(author "is")
-set(module "cameras")
-set(module_levels "gateway")
+set(namespace "is-camera-drivers")
+set(target "${namespace}-utils")
 
 list(APPEND interfaces
-  "camera-gateway.hpp"
+"utils.hpp"
 )
 
-list(APPEND sources
-  "camera-gateway.cpp"
+list(APPEND sources 
+  "utils.cpp"
   ${interfaces}
 )
+
 
 #######
 ####
 #######
-
-string(REPLACE ";" "-" target "${author};${module};${module_levels}")
-string(REPLACE ";" "/" include_dir "${author};${module};${module_levels}")
-set(namespace "${author}-${module}") 
 
 add_library(${target} ${sources})
 
 # compile options
 set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
 
+find_package(is-wire REQUIRED is-wire-core)
+
 # link dependencies
 target_link_libraries(
   ${target}
- PRIVATE
-   zipkin-cpp-opentracing::zipkin-cpp-opentracing
  PUBLIC
-  is-cameras::is-cameras-drivers
   is-wire::is-wire
 )
 
@@ -44,6 +36,7 @@ target_include_directories(
   ${target}
  PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../..> # for headers when building
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../..>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
   $<INSTALL_INTERFACE:include/${include_dir}> # for clients in install mode
 )
@@ -79,25 +72,3 @@ install(FILES ${export_config_file} DESTINATION ${export_destination})
 # create library alias (less error prone to typos)
 set(target_alias ${export_namespace}${target})
 add_library(${target_alias} ALIAS ${target})
-
-#####
-### Tests
-#####
-
-if(enable_tests)
-  enable_testing()
-  find_package(GTest REQUIRED)
-
-  function(gtest_add target source deps)
-    add_executable(${target} ${source})
-    set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
-    target_link_libraries(${target} GTest::GTest GTest::Main ${deps})
-    add_test(${target} ${target}) 
-  endfunction()
-
-  foreach(test ${tests})
-    get_filename_component(test_target ${test} NAME_WE)
-    gtest_add(${test_target}_test ${test} ${target})
-  endforeach(test)
-  
-endif(enable_tests)

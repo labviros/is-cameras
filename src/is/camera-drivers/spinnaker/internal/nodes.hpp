@@ -8,7 +8,7 @@
 #include <tuple>
 #include "SpinGenApi/SpinnakerGenApi.h"
 #include "Spinnaker.h"
-#include "drivers/utils/utils.hpp"
+#include "is/camera-drivers/utils/utils.hpp"
 
 namespace is {
 namespace camera {

@@ -3,9 +3,9 @@ from conans import ConanFile, CMake, tools
 
 class IsCamerasConan(ConanFile):
     name = "is-cameras"
-    version = "1.5.1"
+    version = "0.0.1"
     license = "MIT"
-    url = ""
+    url = "https://github.com/labviros/is-cameras"
     description = ""
     settings = "os", "compiler", "build_type", "arch"
     options = {
@@ -26,9 +26,9 @@ class IsCamerasConan(ConanFile):
     )
     exports_sources = "*"
 
-    # def build_requirements(self):
-    #     if self.options.build_tests:
-    #         self.build_requires("gtest/1.8.0@bincrafters/stable")
+    def build_requirements(self):
+        if self.options.build_tests:
+            self.build_requires("gtest/1.8.0@bincrafters/stable")
 
     def configure(self):
         self.options["is-msgs"].shared = True
@@ -46,7 +46,6 @@ class IsCamerasConan(ConanFile):
         cmake.build()
         # if self.options.build_tests:
         #     cmake.test()
-        # cmake.install()
 
     def package_info(self):
         self.cpp_info.libs = ["is-cameras"]

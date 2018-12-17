@@ -94,7 +94,7 @@ Status CameraGateway::get_configuration(FieldSelector const& field_selector, Cam
       auto smp_s = camera_config->mutable_sampling();
       is_assert_get(driver->get_sampling_rate(smp_s->mutable_frequency()), smp_s->release_frequency());
       is_assert_get(driver->get_delay(smp_s->mutable_delay()), smp_s->release_delay());
-    } else  if (field == CameraConfigFields::CAMERA_SETTINGS) {
+    } else if (field == CameraConfigFields::CAMERA_SETTINGS) {
       auto cam_s = camera_config->mutable_camera();
       is_assert_get(driver->get_shutter(cam_s->mutable_shutter()), cam_s->release_shutter());
       is_assert_get(driver->get_gain(cam_s->mutable_gain()), cam_s->release_gain());
@@ -115,9 +115,8 @@ Status CameraGateway::get_configuration(FieldSelector const& field_selector, Cam
   return is::make_status(StatusCode::OK);
 }
 
-void CameraGateway::run(std::string const& uri, unsigned int const& id,
-                        std::string const& zipkin_host, uint32_t const& zipkin_port, 
-                        is::vision::CameraConfig const& initial_config) {
+void CameraGateway::run(std::string const& uri, unsigned int const& id, std::string const& zipkin_host,
+                        uint32_t const& zipkin_port, is::vision::CameraConfig const& initial_config) {
   is::info("Trying to connect to {}", uri);
 
   auto channel = is::Channel(uri);
@@ -129,7 +128,7 @@ void CameraGateway::run(std::string const& uri, unsigned int const& id,
   zp_options.collector_port = zipkin_port;
   auto tracer = makeZipkinOtTracer(zp_options);
   channel.set_tracer(tracer);
-  
+
   auto log_interceptor = is::LogInterceptor();
   provider.add_interceptor(log_interceptor);
 
@@ -151,11 +150,11 @@ void CameraGateway::run(std::string const& uri, unsigned int const& id,
   driver->start_capture();
   for (;;) {
     auto image = driver->grab_image();
-    
+
     if (image.data().size() > 0) {
       auto im_msg = Message(image);
       auto timestamp = driver->last_timestamp();
-      
+
       auto span = tracer->StartSpan("Frame", {opentracing::v1::StartTimestamp(is::to_system_clock(timestamp))});
       is::OtWriter ot_writer(&im_msg);
       tracer->Inject(span->context(), ot_writer);

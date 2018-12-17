@@ -1,40 +1,59 @@
 include(GNUInstallDirs)
 
-find_package(is-msgs REQUIRED)
-
-set(author "is")
-set(module "cameras")
-set(module_levels "drivers")
+set(namespace "is-camera-drivers")
+set(target "${namespace}-spinnaker")
 
 list(APPEND interfaces
-  "camera-driver.hpp"
+  "driver.hpp"
+  "internal/nodes.hpp"
+  "internal/info.hpp"
 )
 
 list(APPEND sources 
-${interfaces}
+  "driver.cpp"
+  "internal/nodes.cpp"
+  "internal/info.cpp"
+  ${interfaces}
 )
 
 #######
 ####
 #######
 
-string(REPLACE ";" "-" target "${author};${module};${module_levels}")
-string(REPLACE ";" "/" include_dir "${author};${module};${module_levels}")
-set(namespace "${author}-${module}") 
-
 add_library(${target} ${sources})
 
 # compile options
-set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
+set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
+
+find_package(is-msgs REQUIRED)
+find_package(is-wire REQUIRED is-wire-core)
+find_package(opencv REQUIRED)
+
+find_path(SPINNAKER_INCLUDE_DIRS 
+ NAMES 
+  Spinnaker.h
+ PATH_SUFFIXES 
+  spinnaker
+)
+message("!! SPINNAKER HEADERS=${SPINNAKER_INCLUDE_DIRS}")
+  
+find_library(SPINNAKER_LIBRARY 
+ NAMES 
+  Spinnaker
+)
+message("!! SPINNAKER LIBRARY=${SPINNAKER_LIBRARY}")
 
 # link dependencies
 target_link_libraries(
   ${target}
  PRIVATE
+  opencv::opencv
  PUBLIC
+  ${SPINNAKER_LIBRARY}
+  is-wire::is-wire
   is-msgs::is-msgs
-  is-cameras::is-cameras-msgs
-  is-cameras::is-cameras-utils
+  is-camera-drivers::is-camera-drivers-interface
+  is-camera-drivers::is-camera-drivers-utils
 )
 
 # header dependencies
@@ -44,7 +63,7 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../..> # for headers when building
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
   $<INSTALL_INTERFACE:include/${include_dir}> # for clients in install mode
- PRIVATE
+  ${SPINNAKER_INCLUDE_DIRS}
 )
 
 set(export_targets      ${target}Targets)
@@ -78,29 +97,3 @@ install(FILES ${export_config_file} DESTINATION ${export_destination})
 # create library alias (less error prone to typos)
 set(target_alias ${export_namespace}${target})
 add_library(${target_alias} ALIAS ${target})
-
-#####
-### Tests
-#####
-
-if(enable_tests)
-  enable_testing()
-  find_package(GTest REQUIRED)
-
-  function(gtest_add target source deps)
-    add_executable(${target} ${source})
-    set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
-    target_link_libraries(${target} GTest::GTest GTest::Main ${deps})
-    add_test(${target} ${target}) 
-  endfunction()
-
-  foreach(test ${tests})
-    get_filename_component(test_target ${test} NAME_WE)
-    gtest_add(${test_target}_test ${test} ${target})
-  endforeach(test)
-  
-endif(enable_tests)
-
-add_subdirectory(utils)
-add_subdirectory(spinnaker)
-add_subdirectory(flycapture2)

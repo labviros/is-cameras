@@ -1,35 +1,14 @@
 include(GNUInstallDirs)
 
-find_package(is-msgs REQUIRED)
-find_package(is-wire REQUIRED is-wire-core)
-find_package(opencv)
+set(namespace "is-camera-drivers")
+set(target "${namespace}-flycapture2")
 
-find_path(FLYCAPTURE_INCLUDE_DIRS 
- NAMES 
-  FlyCapture2.h
- PATH_SUFFIXES 
-  flycapture
-)
-
-message("!! FLYCAPTURE HEADERS=${FLYCAPTURE_INCLUDE_DIRS}") 
-
-find_library(FLYCAPTURE_LIBRARY NAMES 
-  flycapture
-)
-message("!! FLYCAPTURE LIBRARY=${FLYCAPTURE_LIBRARY}") 
- 
-set(author "is")
-set(module "cameras")
-set(module_levels "drivers" "flycapture2")
-
-set(interfaces)
 list(APPEND interfaces
-"driver.hpp"
-"internal/nodes.hpp"
-"internal/info.hpp"
+  "driver.hpp"
+  "internal/nodes.hpp"
+  "internal/info.hpp"
 )
 
-set(sources)
 list(APPEND sources 
   "driver.cpp"
   "internal/nodes.cpp"
@@ -41,14 +20,28 @@ list(APPEND sources
 ####
 #######
 
-string(REPLACE ";" "-" target "${author};${module};${module_levels}")
-string(REPLACE ";" "/" include_dir "${author};${module};${module_levels}")
-set(namespace "${author}-${module}") 
-
 add_library(${target} ${sources})
 
 # compile options
 set_property(TARGET ${target} PROPERTY CXX_STANDARD 14)
+
+find_package(is-msgs REQUIRED)
+find_package(is-wire REQUIRED is-wire-core)
+find_package(opencv REQUIRED)
+
+find_path(FLYCAPTURE_INCLUDE_DIRS 
+ NAMES 
+  FlyCapture2.h
+ PATH_SUFFIXES 
+  flycapture
+)
+message("!! FLYCAPTURE HEADERS=${FLYCAPTURE_INCLUDE_DIRS}") 
+
+find_library(FLYCAPTURE_LIBRARY 
+ NAMES 
+  flycapture
+)
+message("!! FLYCAPTURE LIBRARY=${FLYCAPTURE_LIBRARY}") 
 
 # link dependencies
 target_link_libraries(
@@ -59,8 +52,8 @@ target_link_libraries(
   ${FLYCAPTURE_LIBRARY}
   is-wire::is-wire
   is-msgs::is-msgs
-  is-cameras::is-cameras-drivers
-  is-cameras::is-cameras-utils
+  is-camera-drivers::is-camera-drivers-interface
+  is-camera-drivers::is-camera-drivers-utils
 )
 
 # header dependencies
@@ -104,25 +97,3 @@ install(FILES ${export_config_file} DESTINATION ${export_destination})
 # create library alias (less error prone to typos)
 set(target_alias ${export_namespace}${target})
 add_library(${target_alias} ALIAS ${target})
-
-#####
-### Tests
-#####
-
-if(enable_tests)
-  enable_testing()
-  find_package(GTest REQUIRED)
-
-  function(gtest_add target source deps)
-    add_executable(${target} ${source})
-    set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
-    target_link_libraries(${target} GTest::GTest GTest::Main ${deps})
-    add_test(${target} ${target}) 
-  endfunction()
-
-  foreach(test ${tests})
-    get_filename_component(test_target ${test} NAME_WE)
-    gtest_add(${test_target}_test ${test} ${target})
-  endforeach(test)
-  
-endif(enable_tests)
